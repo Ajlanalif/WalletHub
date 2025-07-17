@@ -7,28 +7,33 @@ WalletHub is a comprehensive personal finance management application that helps 
 ## 🚀 Features
 
 ### Multi-Account Management
+
 - **Bank Accounts**: Track multiple bank accounts with real-time balance updates
 - **Mobile Financial Services (MFS)**: Manage mobile money accounts (bKash, Nagad, etc.)
 - **Digital Wallet**: Monitor cash and digital wallet balances
 
 ### Transaction Management
+
 - **Income Tracking**: Record income from various sources
 - **Expense Monitoring**: Categorize and track all expenses
 - **Inter-Account Transfers**: Move money between different accounts
 - **Transaction History**: Comprehensive transaction logs with filtering options
 
 ### Loan Management
+
 - **Loan Tracking**: Record loans taken and given
 - **Repayment Scheduling**: Track loan repayments and due dates
 - **Outstanding Balance**: Monitor remaining loan amounts
 
 ### Financial Analytics
+
 - **Monthly Reports**: Visual charts showing income and expense patterns
 - **Category Analysis**: Breakdown of spending by categories
 - **PDF Reports**: Download monthly financial reports
 - **Balance Insights**: Real-time overview of total financial position
 
 ### User Management
+
 - **Secure Authentication**: Password hashing with SHA-256
 - **Profile Management**: Update personal information and profile photos
 - **Account Security**: Change passwords and delete accounts
@@ -54,39 +59,45 @@ Before running this application, make sure you have the following installed:
 ## 🔧 Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/yourusername/WalletHub.git
    cd WalletHub
    ```
 
 2. **Create a virtual environment**
+
    ```bash
    python -m venv venv
-   
+
    # On Windows
    venv\Scripts\activate
-   
+
    # On macOS/Linux
    source venv/bin/activate
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. **Set up MySQL database**
+
    ```sql
    CREATE DATABASE wh;
    ```
 
 5. **Configure database connection**
    Update the database URI in `app.py`:
+
    ```python
    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://username:password@localhost/wh'
    ```
 
 6. **Initialize the database**
+
    ```bash
    flask db init
    flask db migrate -m "Initial migration"
@@ -101,6 +112,7 @@ Before running this application, make sure you have the following installed:
 ## 🚀 Running the Application
 
 1. **Start the Flask development server**
+
    ```bash
    python app.py
    ```
@@ -111,18 +123,21 @@ Before running this application, make sure you have the following installed:
 ## 📱 Usage
 
 ### Getting Started
+
 1. **Sign Up**: Create a new account with username, email, and secure password
 2. **Profile Setup**: Complete your profile with personal details and photo
 3. **Account Setup**: Add your bank accounts, MFS accounts, and wallet balance
 4. **Start Tracking**: Begin recording your financial transactions
 
 ### Managing Transactions
+
 - **Income**: Record salary, business income, or other earnings
 - **Expenses**: Track daily expenses with categories
 - **Transfers**: Move money between your accounts
 - **Loans**: Record loans and track repayments
 
 ### Financial Analysis
+
 - **Dashboard**: Get an overview of all your accounts and balances
 - **Monthly Tracker**: View detailed monthly financial reports
 - **Transaction History**: Filter and search through your transaction history
