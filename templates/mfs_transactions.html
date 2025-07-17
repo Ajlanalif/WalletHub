@@ -1,0 +1,886 @@
+{% extends "base.html" %}
+
+{% block title %} MFS Transactions {% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>Mobile banking Transactions</h1>
+        <a href="{{ url_for('dashboard') }}" class="back-button">← Back to Dashboard</a>
+    </div>
+
+    <div class="mfs-info">
+        <div class="balance-summary">
+            <h2>Total MFS Balance: <span>{{ mfs_balance }}/=</span></h2>
+        </div>
+
+
+        <div class="accounts-list">
+            <div class="accounts-header">
+                <h3>Your MFS Accounts</h3>
+                <a href="#" class="add-account-button">
+                    <i class="fas fa-plus"></i> Add MFS Account
+                </a>
+            </div>
+            <div class="accounts-grid">
+                {% for mfs in mfs_accounts %}
+                <div class="account-card">
+                    <div class="account-name">{{ mfs.mfs_name }}</div>
+                    <div class="account-number">A/C: {{ mfs.account_no }}</div>
+                    <div class="account-balance">{{ mfs.balance }}/=</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="transaction-filters">
+        <form method="GET" action="{{ url_for('mfs_transactions') }}">
+            <div class="filter-group">
+                <label for="mfs_account">Account:</label>
+                <select id="mfs_account" name="account">
+                    <option value="all" {% if request.args.get('account')=='all' or not request.args.get('account')
+                        %}selected{% endif %}>All Accounts</option>
+                    {% for mfs in mfs_accounts %}
+                    <option value="{{ mfs.id }}" {% if request.args.get('account')|int==mfs.id %}selected{% endif %}>{{
+                        mfs.mfs_name }} - {{ mfs.account_no }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="transaction_type">Type:</label>
+                <select id="transaction_type" name="type">
+                    <option value="all" {% if request.args.get('type')=='all' or not request.args.get('type')
+                        %}selected{% endif %}>All</option>
+                    <option value="income" {% if request.args.get('type')=='income' %}selected{% endif %}>Income
+                    </option>
+                    <option value="expense" {% if request.args.get('type')=='expense' %}selected{% endif %}>Expense
+                    </option>
+                    <option value="transfer" {% if request.args.get('type')=='transfer' %}selected{% endif %}>Transfer
+                    </option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="date_from">From:</label>
+                <input type="date" id="date_from" name="date_from" value="{{ request.args.get('date_from', '') }}">
+            </div>
+
+            <div class="filter-group">
+                <label for="date_to">To:</label>
+                <input type="date" id="date_to" name="date_to" value="{{ request.args.get('date_to', '') }}">
+            </div>
+
+            <button type="submit" class="filter-button">Apply Filters</button>
+        </form>
+    </div>
+
+    <div class="transaction-table-container">
+        {% if transactions %}
+        <table class="transaction-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Account</th>
+                    <th>Type</th>
+                    <th>Description/Category</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr class="{{ transaction.transaction_type }}">
+                    <td>{{ transaction.timestamp.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if transaction.transaction_type == 'transfer' and transaction.destination_type == 'mfs' %}
+                        <!-- This is a received transfer -->
+                        {{ transaction.source_mfs_name }} - {{ transaction.source_mfs_number[-4:] }}
+                        {% else %}
+                        <!-- This is a sent transaction/transfer -->
+                        {{ transaction.source_mfs_name }} - {{ transaction.source_mfs_number[-4:] }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if transaction.transaction_type == 'income' %}
+                        <span class="badge income">Income</span>
+                        {% elif transaction.transaction_type == 'expense' %}
+                        <span class="badge expense">Expense</span>
+                        {% else %}
+                        <span class="badge transfer">Transfer</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if transaction.transaction_type == 'transfer' %}
+                        {% if transaction.source_type == 'mfs' and transaction.destination_type == 'mfs' and
+                        transaction.source_mfs_name == transaction.destination_mfs_name and
+                        transaction.source_mfs_number == transaction.destination_mfs_number %}
+                        <span class="transfer-detail">Same Account Transfer</span>
+                        {% elif transaction.source_type == 'mfs' %}
+                        <!-- This MFS account is the sender -->
+                        <span class="transfer-detail">Sent to
+                            {% if transaction.destination_type == 'bank' %}
+                            {{ transaction.destination_bank_name }} (Bank)
+                            {% elif transaction.destination_type == 'mfs' %}
+                            {{ transaction.destination_mfs_name }} (MFS)
+                            {% elif transaction.destination_type == 'wallet' %}
+                            Wallet
+                            {% endif %}
+                        </span>
+                        {% elif transaction.destination_type == 'mfs' %}
+                        <!-- This MFS account is the receiver -->
+                        <span class="transfer-detail">Received from
+                            {% if transaction.source_type == 'bank' %}
+                            {{ transaction.source_bank_name }} (Bank)
+                            {% elif transaction.source_type == 'mfs' %}
+                            {{ transaction.source_mfs_name }} (MFS)
+                            {% elif transaction.source_type == 'wallet' %}
+                            Wallet
+                            {% endif %}
+                        </span>
+                        {% endif %}
+                        {% if transaction.description %}
+                        <br><span class="description-text">{{ transaction.description }}</span>
+                        {% endif %}
+                        {% elif transaction.description %}
+                        {{ transaction.description }}
+                        {% elif transaction.category %}
+                        {{ transaction.category }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td
+                        class="amount {% if transaction.transaction_type == 'income' %}positive{% elif transaction.transaction_type == 'expense' %}negative{% endif %}">
+                        {% if transaction.transaction_type == 'income' %}+{% elif transaction.transaction_type ==
+                        'expense' %}-{% endif %}
+                        {{ transaction.amount }}/=
+                    </td>
+                    <td class="action-buttons">
+                        {% if transaction.category|lower != 'loan' and transaction.category|lower != 'loan repayment' %}
+                            <button class="edit-button" data-id="{{ transaction.id }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-button" data-id="{{ transaction.id }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        {% else %}
+                            <span class="no-actions-allowed">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="no-transactions">
+            <p>No MFS transactions found.</p>
+            <a href="{{ url_for('dashboard') }}" class="action-button">Add a transaction</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add MFS Account Modal -->
+<div id="addMFSAccountModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New MFS Account</h3>
+            <span class="close-modal">&times;</span>
+        </div>
+        <form id="addMFSAccountForm" method="POST" action="{{ url_for('add_mfs_account') }}">
+            <div class="form-group">
+                <label for="mfs_name">MFS Provider:</label>
+                <input type="text" id="mfs_name" name="mfs_name" placeholder="bKash, Nagad, etc." required>
+            </div>
+
+            <div class="form-group">
+                <label for="account_no">Account Number:</label>
+                <input type="text" id="account_no" name="account_no" placeholder="01XXX-XXXXXX" required>
+            </div>
+
+            <div class="form-group">
+                <label for="balance">Initial Balance:</label>
+                <input type="number" id="balance" name="balance" min="0" step="0.01" required>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="cancel-button">Cancel</button>
+                <button type="submit" class="submit-button">Add Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editTransactionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Transaction</h3>
+            <span class="close-modal" id="editModalClose">&times;</span>
+        </div>
+        <form id="editTransactionForm" method="POST" action="{{ url_for('edit_transaction') }}">
+            <input type="hidden" id="edit_transaction_id" name="transaction_id" value="">
+            
+            <div class="form-group">
+                <label for="edit_amount">Amount:</label>
+                <input type="number" id="edit_amount" name="amount" min="0" step="0.01" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="edit_category">Category/Description:</label>
+                <input type="text" id="edit_category" name="category">
+            </div>
+            
+            <div class="form-group">
+                <label for="edit_date">Date:</label>
+                <input type="date" id="edit_date" name="date" required>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="cancel-button" id="editCancelButton">Cancel</button>
+                <button type="submit" class="submit-button">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Transaction Confirmation Modal -->
+<div id="deleteTransactionModal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header" style="background-color: #dc3545;">
+            <h3>Confirm Delete</h3>
+            <span class="close-modal" id="deleteModalClose">&times;</span>
+        </div>
+        <div style="padding: 20px;">
+            <p>Are you sure you want to delete this transaction? This action cannot be undone.</p>
+            
+            <form id="deleteTransactionForm" method="POST" action="{{ url_for('delete_transaction') }}">
+                <input type="hidden" id="delete_transaction_id" name="transaction_id" value="">
+                
+                <div class="form-actions" style="justify-content: space-between;">
+                    <button type="button" class="cancel-button" id="deleteCancelButton">Cancel</button>
+                    <button type="submit" class="submit-button" style="background-color: #dc3545;">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<style>
+    .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .back-button {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #495057;
+        transition: all 0.3s ease;
+    }
+
+    .back-button:hover {
+        background-color: #e9ecef;
+    }
+
+    .mfs-info {
+        background-color: #28a745;
+        /* Green for MFS */
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        color: white;
+    }
+
+    .balance-summary {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+
+    .accounts-list h3 {
+        text-align: center;
+        margin-bottom: 15px;
+        font-size: 1.2rem;
+    }
+
+    .accounts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 15px;
+    }
+
+    .account-card {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+        padding: 15px;
+        transition: all 0.3s ease;
+    }
+
+    .account-card:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .account-name {
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+
+    .account-number {
+        font-size: 0.9rem;
+        margin: 5px 0;
+        opacity: 0.8;
+    }
+
+    .account-balance {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-top: 5px;
+    }
+
+    .transaction-filters {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .transaction-filters form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        min-width: 150px;
+    }
+
+    .filter-group label {
+        margin-bottom: 5px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+
+    .filter-button {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .filter-button:hover {
+        background-color: #218838;
+    }
+
+    .transaction-table-container {
+        overflow-x: auto;
+    }
+
+    .transaction-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .transaction-table th,
+    .transaction-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .transaction-table thead tr {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
+
+    .transaction-table tbody tr:hover {
+        background-color: #f1f3f5;
+    }
+
+    .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    .badge.income {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .badge.expense {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .badge.transfer {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+
+    .amount {
+        font-weight: bold;
+    }
+
+    .amount.positive {
+        color: #28a745;
+    }
+
+    .amount.negative {
+        color: #dc3545;
+    }
+
+    .no-transactions {
+        text-align: center;
+        padding: 50px 0;
+    }
+
+    .action-button {
+        display: inline-block;
+        background-color: #28a745;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-top: 15px;
+        transition: background-color 0.3s;
+    }
+
+    .action-button:hover {
+        background-color: #218838;
+    }
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    animation: modalFadeIn 0.3s;
+}
+
+@keyframes modalFadeIn {
+    from {opacity: 0; transform: translateY(-20px);}
+    to {opacity: 1; transform: translateY(0);}
+}
+
+/* Modal Header is already styled */
+
+.close-modal {
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-modal:hover {
+    color: #f8f9fa;
+}
+
+.modal-content form {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cancel-button {
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 1px solid #ddd;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.cancel-button:hover {
+    background-color: #e9ecef;
+}
+.accounts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.add-account-button {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background-color 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.modal-header {
+    padding: 15px 20px;
+    background-color: rgb(40, 167, 69);
+    color: white;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.close-modal {
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-modal:hover {
+    color: #f8f9fa;
+}
+.add-account-button:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: white;
+    text-decoration: none;
+}
+
+.submit-button {
+    background-color: rgb(40, 167, 69);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.submit-button:hover {
+    background-color: rgb(40, 167, 69, 0.9);
+}
+
+
+    @media (max-width: 768px) {
+        .filter-group {
+            width: 100%;
+        }
+
+        .transaction-filters form {
+            flex-direction: column;
+        }
+
+        .accounts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    /* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    animation: modalFadeIn 0.3s;
+}
+
+@keyframes modalFadeIn {
+    from {opacity: 0; transform: translateY(-20px);}
+    to {opacity: 1; transform: translateY(0);}
+}
+
+.modal-header {
+    padding: 15px 20px;
+    background-color: #218838;
+    color: white;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.close-modal {
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-modal:hover {
+    color: #f8f9fa;
+}
+
+.modal-content form {
+    padding: 20px;
+}
+
+/* Action buttons */
+.action-buttons {
+    white-space: nowrap;
+    width: 80px;
+}
+
+.edit-button, .delete-button {
+    padding: 5px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 3px;
+}
+
+.edit-button {
+    color: #007bff;
+    margin-right: 5px;
+}
+
+.edit-button:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.delete-button {
+    color: #dc3545;
+}
+
+.delete-button:hover {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Form styles */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cancel-button {
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 1px solid #ddd;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.cancel-button:hover {
+    background-color: #e9ecef;
+}
+
+.submit-button {
+    background-color: #218838;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.submit-button:hover {
+    background-color: #0069d9;
+}
+</style>
+<script>
+    // Modal functionality
+    document.addEventListener('DOMContentLoaded', function () {
+        const modal = document.getElementById('addMFSAccountModal');
+        const openModalBtn = document.querySelector('.add-account-button');
+        const closeModalBtn = document.querySelector('.close-modal');
+        const cancelBtn = document.querySelector('.cancel-button');
+
+        // Show modal
+        openModalBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            modal.style.display = 'block';
+        });
+
+        // Close modal when clicking X
+        closeModalBtn.addEventListener('click', function () {
+            modal.style.display = 'none';
+        });
+
+        // Close modal when clicking Cancel
+        cancelBtn.addEventListener('click', function () {
+            modal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function (e) {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+        const editModal = document.getElementById('editTransactionModal');
+        const deleteModal = document.getElementById('deleteTransactionModal');
+        
+        // Edit buttons
+        document.querySelectorAll('.edit-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const transactionId = this.dataset.id;
+                document.getElementById('edit_transaction_id').value = transactionId;
+                
+                
+                const row = this.closest('tr');
+                const dateCell = row.querySelector('td:nth-child(1)').textContent;
+                const amountText = row.querySelector('td:nth-child(5)').textContent.trim();
+                const amount = parseFloat(amountText.replace('+', '').replace('-', '').replace('/=', ''));
+                
+                // Try to get category
+                let category = '';
+                const descCell = row.querySelector('td:nth-child(4)').textContent.trim();
+                if (descCell !== '-') {
+                    category = descCell;
+                }
+                
+                // Set form values
+                document.getElementById('edit_amount').value = amount;
+                document.getElementById('edit_category').value = category;
+                
+                // Parse date
+                const dateParts = dateCell.split(' ')[0].split('-');
+                document.getElementById('edit_date').value = dateParts[0] + '-' + dateParts[1] + '-' + dateParts[2];
+                
+                // Show modal
+                editModal.style.display = 'block';
+            });
+        });
+        
+        // Delete buttons
+        document.querySelectorAll('.delete-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const transactionId = this.dataset.id;
+                document.getElementById('delete_transaction_id').value = transactionId;
+                deleteModal.style.display = 'block';
+            });
+        });
+        
+        // Close edit modal
+        document.getElementById('editModalClose').addEventListener('click', function() {
+            editModal.style.display = 'none';
+        });
+        
+        document.getElementById('editCancelButton').addEventListener('click', function() {
+            editModal.style.display = 'none';
+        });
+        
+        // Close delete modal
+        document.getElementById('deleteModalClose').addEventListener('click', function() {
+            deleteModal.style.display = 'none';
+        });
+        
+        document.getElementById('deleteCancelButton').addEventListener('click', function() {
+            deleteModal.style.display = 'none';
+        });
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', function(e) {
+            if (e.target === editModal) {
+                editModal.style.display = 'none';
+            }
+            if (e.target === deleteModal) {
+                deleteModal.style.display = 'none';
+            }
+        });
+    
+    });
+    
+</script>
+{% endblock %}

@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>User Management</h1>
+        <div class="breadcrumb">
+            <a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i></a> / 
+            <a href="{{ url_for('admin_dashboard') }}">Admin</a> / Users
+        </div>
+    </div>
+    
+    <div class="admin-actions">
+        <div class="search-container">
+            <input type="text" id="userSearch" placeholder="Search users..." class="search-input">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </div>
+    
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <h2><i class="fas fa-users"></i> All Users <span class="badge">{{ users|length }}</span></h2>
+        </div>
+        <div class="admin-card-body">
+            {% if users %}
+            <div class="table-responsive">
+                <table class="admin-table" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-sort="id">ID <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="username">Username <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="email">Email <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="admin">Admin <i class="fas fa-sort"></i></th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td class="username-cell">
+                                <div class="user-thumbnail">
+                                    <div class="user-initial">{{ user.username[0]|upper }}</div>
+                                </div>
+                                <span>{{ user.username }}</span>
+                            </td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                {% if user.is_admin %}
+                                <span class="admin-badge success">Admin</span>
+                                {% else %}
+                                <span class="admin-badge neutral">User</span>
+                                {% endif %}
+                            </td>
+                            <td class="actions-cell">
+                                <a href="{{ url_for('admin_user_details', user_id=user.id) }}" class="admin-btn-sm"><i class="fas fa-eye"></i> View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <p>No users found</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Admin Global Styles */
+    .admin-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 30px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    .admin-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #6f42c1;
+        padding-bottom: 15px;
+    }
+    
+    .admin-header h1 {
+        font-size: 32px;
+        color: #333;
+        margin: 0;
+        font-weight: 600;
+    }
+    
+    .breadcrumb {
+        color: #6c757d;
+        font-size: 14px;
+    }
+    
+    .breadcrumb a {
+        color: #6f42c1;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    
+    .breadcrumb a:hover {
+        color: #5a32a3;
+        text-decoration: underline;
+    }
+    
+    /* Admin Actions */
+    .admin-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 20px;
+    }
+    
+    .search-container {
+        position: relative;
+        width: 300px;
+    }
+    
+    .search-input {
+        width: 100%;
+        padding: 10px 15px 10px 40px;
+        border-radius: 50px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+        transition: all 0.3s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: #6f42c1;
+        box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.2);
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    /* Admin Card */
+    .admin-card {
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        margin-bottom: 30px;
+    }
+    
+    .admin-card:hover {
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    
+    .admin-card-header {
+        padding: 18px 25px;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #eaeaea;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .admin-card-header h2 {
+        margin: 0;
+        font-size: 20px;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .admin-card-header h2 i {
+        color: #6f42c1;
+    }
+    
+    .admin-card-body {
+        padding: 0;
+    }
+    
+    /* Table Styles */
+    .table-responsive {
+        overflow-x: auto;
+    }
+    
+    .admin-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .admin-table th, 
+    .admin-table td {
+        padding: 16px 20px;
+        text-align: left;
+        border-bottom: 1px solid #eaeaea;
+    }
+    
+    .admin-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+        position: sticky;
+        top: 0;
+    }
+    
+    .admin-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    
+    .admin-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .admin-table tbody tr:nth-child(even) {
+        background-color: #fdfdfd;
+    }
+    
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .sortable i {
+        margin-left: 5px;
+        font-size: 12px;
+        color: #adb5bd;
+    }
+    
+    .sortable:hover i {
+        color: #6f42c1;
+    }
+    
+    /* User Thumbnail */
+    .username-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .user-thumbnail {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #6f42c1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 16px;
+    }
+    
+    .user-initial {
+        text-transform: uppercase;
+    }
+    
+    /* Actions Cell */
+    .actions-cell {
+        white-space: nowrap;
+    }
+    
+    /* Admin Badge & Button Styles */
+    .admin-badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .admin-badge.success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .admin-badge.neutral {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .badge {
+        background-color: #6f42c1;
+        color: white;
+        border-radius: 20px;
+        padding: 3px 8px;
+        font-size: 14px;
+        margin-left: 8px;
+    }
+    
+    .admin-btn-sm {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background-color: #6f42c1;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    
+    .admin-btn-sm:hover {
+        background-color: #5a32a3;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 60px;
+        margin-bottom: 20px;
+        color: #dee2e6;
+    }
+    
+    .empty-state p {
+        font-size: 18px;
+    }
+    
+    /* Responsive Styles */
+    @media (max-width: 768px) {
+        .admin-container {
+            padding: 20px 15px;
+        }
+        
+        .admin-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .admin-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+        
+        .search-container {
+            width: 100%;
+        }
+        
+        .admin-table th,
+        .admin-table td {
+            padding: 12px 10px;
+            font-size: 14px;
+        }
+        
+        .username-cell {
+            gap: 8px;
+        }
+        
+        .user-thumbnail {
+            width: 30px;
+            height: 30px;
+            font-size: 14px;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        const searchInput = document.getElementById('userSearch');
+        const table = document.getElementById('usersTable');
+        const rows = table.getElementsByTagName('tr');
+        
+        searchInput.addEventListener('keyup', function() {
+            const query = this.value.toLowerCase();
+            
+            for (let i = 1; i < rows.length; i++) {
+                let found = false;
+                const cells = rows[i].getElementsByTagName('td');
+                
+                for (let j = 0; j < cells.length; j++) {
+                    const cellText = cells[j].textContent.toLowerCase();
+                    if (cellText.indexOf(query) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+                
+                rows[i].style.display = found ? '' : 'none';
+            }
+        });
+        
+        // Sort functionality
+        const headers = document.querySelectorAll('.sortable');
+        headers.forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.dataset.sort;
+                const index = [...this.parentElement.children].indexOf(this);
+                const isAscending = this.classList.contains('asc');
+                
+                // Reset all headers
+                headers.forEach(h => {
+                    h.classList.remove('asc', 'desc');
+                    h.querySelector('i').className = 'fas fa-sort';
+                });
+                
+                // Set current header
+                if (isAscending) {
+                    this.classList.add('desc');
+                    this.querySelector('i').className = 'fas fa-sort-down';
+                } else {
+                    this.classList.add('asc');
+                    this.querySelector('i').className = 'fas fa-sort-up';
+                }
+                
+                // Sort rows
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                
+                rows.sort((a, b) => {
+                    let aValue = a.cells[index].textContent.trim();
+                    let bValue = b.cells[index].textContent.trim();
+                    
+                    // If sorting by admin column, prioritize Admin over User
+                    if (column === 'admin') {
+                        aValue = a.cells[index].querySelector('.admin-badge').textContent;
+                        bValue = b.cells[index].querySelector('.admin-badge').textContent;
+                    }
+                    
+                    // If sorting by ID, convert to number
+                    if (column === 'id') {
+                        return isAscending ? 
+                            parseInt(bValue) - parseInt(aValue) : 
+                            parseInt(aValue) - parseInt(bValue);
+                    }
+                    
+                    return isAscending ? 
+                        bValue.localeCompare(aValue) : 
+                        aValue.localeCompare(bValue);
+                });
+                
+                // Reorder the table
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        });
+    });
+</script>
+{% endblock %}

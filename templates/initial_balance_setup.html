@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Initial Balance Setup{%endblock%}
+{%block link%}
+    <style>
+        .section {
+            margin-bottom: 20px;
+        }
+        .account {
+            margin-bottom: 10px;
+        }
+        .master {
+            margin: 20px auto;
+            width: 50%;
+            padding: 20px;
+            border: 1px solid black;
+            border-radius: 10px;
+            background-color: #f0f0f0;
+        }
+    </style>
+    <script>
+        function addBankAccount() {
+            const bankSection = document.getElementById('bank-section');
+            const newBankDiv = document.createElement('div');
+            newBankDiv.className = 'account';
+            newBankDiv.innerHTML = `
+                <br><label>Bank Name: <input type="text" name="bank_name[]"></label>
+                <label>Account No: <input type="text" name="bank_acc_no[]"></label><br><br>
+                <label>Balance: <input type="number" name="bank_balance[]" step="0.01"></label>
+            `;
+            bankSection.appendChild(newBankDiv);
+        }
+
+        function addMfsAccount() {
+            const mfsSection = document.getElementById('mfs-section');
+            const newMfsDiv = document.createElement('div');
+            newMfsDiv.className = 'account';
+            newMfsDiv.innerHTML = `
+                <br><label>MFS Name: <input type="text" name="mfs_name[]"></label>
+                <label>Account No: <input type="text" name="mfs_acc_no[]"></label><br><br>
+                <label>Balance: <input type="number" name="mfs_balance[]" step="0.01"></label>
+            `;
+            mfsSection.appendChild(newMfsDiv);
+        }
+    </script>
+{%endblock%}
+{%block content%}
+<div class="master">
+
+    <h1>Initial Balance Setup</h1>
+    <form method="POST" action="{{ url_for('initial_balance_setup') }}">
+        <div class="section" id="bank-section">
+            <h2>Bank Accounts</h2><br>
+            <button type="button" onclick="addBankAccount()">Add Bank Account</button>
+        </div>
+
+        <div class="section" id="mfs-section">
+            <h2>MFS Accounts</h2><br>
+            <button type="button" onclick="addMfsAccount()">Add MFS Account</button>
+        </div>
+
+        <div class="section">
+            <h2>Wallet Balance</h2><br>
+            <label>Balance: <input type="number" name="wallet_balance" step="0.01"></label>
+        </div>
+
+        <button type="submit">Submit</button>
+    </form>
+</div>
+{%endblock%}

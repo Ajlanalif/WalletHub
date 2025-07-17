@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block title %} All Transactions {% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>All Transactions</h1>
+        <a href="{{ url_for('dashboard') }}" class="back-button">← Back to Dashboard</a>
+    </div>
+
+    <div class="summary-bar">
+        <div class="summary-item">
+            <span class="summary-label">Total Balance:</span>
+            <span class="summary-value">{{ "%.2f"|format(total_balance) }}/=</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">Bank:</span>
+            <span class="summary-value">{{ "%.2f"|format(bank_balance) }}/=</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">MFS:</span>
+            <span class="summary-value">{{ "%.2f"|format(mfs_balance) }}/=</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">Wallet:</span>
+            <span class="summary-value">{{ "%.2f"|format(wallet_balance) }}/=</span>
+        </div>
+    </div>
+
+    <div class="transaction-filters">
+        <form method="GET" action="{{ url_for('all_transactions') }}">
+            <div class="filter-group">
+                <label for="account_type">Account Type:</label>
+                <select id="account_type" name="account_type">
+                    <option value="all" {% if request.args.get('account_type') == 'all' or not request.args.get('account_type') %}selected{% endif %}>All Accounts</option>
+                    <option value="bank" {% if request.args.get('account_type') == 'bank' %}selected{% endif %}>Bank</option>
+                    <option value="mfs" {% if request.args.get('account_type') == 'mfs' %}selected{% endif %}>MFS</option>
+                    <option value="wallet" {% if request.args.get('account_type') == 'wallet' %}selected{% endif %}>Wallet</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="transaction_type">Transaction Type:</label>
+                <select id="transaction_type" name="type">
+                    <option value="all" {% if request.args.get('type') == 'all' or not request.args.get('type') %}selected{% endif %}>All Types</option>
+                    <option value="income" {% if request.args.get('type') == 'income' %}selected{% endif %}>Income</option>
+                    <option value="expense" {% if request.args.get('type') == 'expense' %}selected{% endif %}>Expense</option>
+                    <option value="transfer" {% if request.args.get('type') == 'transfer' %}selected{% endif %}>Transfer</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="date_from">From:</label>
+                <input type="date" id="date_from" name="date_from" value="{{ request.args.get('date_from', '') }}">
+            </div>
+            
+            <div class="filter-group">
+                <label for="date_to">To:</label>
+                <input type="date" id="date_to" name="date_to" value="{{ request.args.get('date_to', '') }}">
+            </div>
+            
+            <div class="filter-group">
+                <label for="search">Search:</label>
+                <input type="text" id="search" name="search" value="{{ request.args.get('search', '') }}" placeholder="Search by category or description">
+            </div>
+            
+            <button type="submit" class="filter-button">Apply Filters</button>
+            <a href="{{ url_for('all_transactions') }}" class="reset-button">Reset</a>
+        </form>
+    </div>
+
+    <div class="transaction-stats">
+        <div class="stat-card income-stat">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value">{{ income_total }}/=</div>
+            <div class="stat-label">Total Income</div>
+        </div>
+        <div class="stat-card expense-stat">
+            <div class="stat-icon">💸</div>
+            <div class="stat-value">{{ expense_total }}/=</div>
+            <div class="stat-label">Total Expenses</div>
+        </div>
+        <div class="stat-card net-stat">
+            <div class="stat-icon">📊</div>
+            <div class="stat-value {% if income_total - expense_total >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.2f"|format(income_total - expense_total) }}/=
+            </div>
+            <div class="stat-label">Net Money Flow</div>
+        </div>
+    </div>
+
+    <div class="transaction-table-container">
+        {% if transactions %}
+        <table class="transaction-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Account</th>
+                    <th>Type</th>
+                    <th>Category/Description</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                {% if transaction.transaction_type != 'transfer'%}
+                <tr class="{{ transaction.transaction_type }}">
+                    <td>{{ transaction.timestamp.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if transaction.source_type == 'bank' %}
+                            <span class="account-badge bank">
+                                <i class="fas fa-university"></i> 
+                                {{ transaction.source_bank_name or transaction.destination_bank_name }}
+                            </span>
+                        {% elif transaction.source_type == 'mfs' %}
+                            <span class="account-badge mfs">
+                                <i class="fas fa-mobile-alt"></i>
+                                {{ transaction.source_mfs_name or transaction.destination_mfs_name }}
+                            </span>
+                        {% else %}
+                            <span class="account-badge wallet">
+                                <i class="fas fa-wallet"></i> Wallet
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if transaction.transaction_type == 'income' %}
+                            <span class="badge income">Income</span>
+                        {% elif transaction.transaction_type == 'expense' %}
+                            <span class="badge expense">Expense</span>
+                        {% else %}
+                            <span class="badge transfer">Transfer</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if transaction.category %}
+                            <strong>{{ transaction.category }}</strong>
+                            {% if transaction.description %}
+                                <br><span class="description-text">{{ transaction.description }}</span>
+                            {% endif %}
+                        {% elif transaction.description %}
+                            {{ transaction.description }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="amount {% if transaction.transaction_type == 'income' %}positive{% elif transaction.transaction_type == 'expense' %}negative{% endif %}">
+                        {% if transaction.transaction_type == 'income' %}+{% elif transaction.transaction_type == 'expense' %}-{% endif %}
+                        {{ transaction.amount }}/=
+                    </td>
+                </tr>
+                {%endif%}
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="no-transactions">
+            <p>No transactions found matching your criteria.</p>
+            <a href="{{ url_for('dashboard') }}" class="action-button">Add a transaction</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .back-button {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #495057;
+        transition: all 0.3s ease;
+    }
+    
+    .back-button:hover {
+        background-color: #e9ecef;
+    }
+    
+    .summary-bar {
+        display: flex;
+        justify-content: space-between;
+        background-color: #343a40;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        color: white;
+    }
+    
+    .summary-item {
+        text-align: center;
+    }
+    
+    .summary-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .summary-value {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    
+    .transaction-filters {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .transaction-filters form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: flex-end;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        min-width: 150px;
+    }
+    
+    .filter-group label {
+        margin-bottom: 5px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    
+    .filter-button {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    
+    .filter-button:hover {
+        background-color: #5a6268;
+    }
+    
+    .reset-button {
+        background-color: #f8f9fa;
+        color: #212529;
+        border: 1px solid #ddd;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    
+    .reset-button:hover {
+        background-color: #e9ecef;
+    }
+    
+    .transaction-stats {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        gap: 15px;
+    }
+    
+    .stat-card {
+        flex: 1;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        color: white;
+        transition: transform 0.2s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .income-stat {
+        background-color: rgba(40, 167, 69, 0.9);
+    }
+    
+    .expense-stat {
+        background-color: rgba(220, 53, 69, 0.9);
+    }
+    
+    .net-stat {
+        background-color: rgba(0, 123, 255, 0.9);
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        margin-bottom: 5px;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stat-value.positive {
+        color: #d4edda;
+    }
+    
+    .stat-value.negative {
+        color: #f8d7da;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+    
+    .transaction-table-container {
+        overflow-x: auto;
+    }
+    
+    .transaction-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .transaction-table th, 
+    .transaction-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .transaction-table thead tr {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
+    
+    .transaction-table tbody tr:hover {
+        background-color: #f1f3f5;
+    }
+    
+    .account-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .account-badge.bank {
+        background-color: rgba(0, 123, 255, 0.8);
+    }
+    
+    .account-badge.mfs {
+        background-color: rgba(40, 167, 69, 0.8);
+    }
+    
+    .account-badge.wallet {
+        background-color: #6f42c1;
+        border: 2px solid #5a32a3;
+        color: white;
+    }
+    
+    .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    .badge.income {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .badge.expense {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .badge.transfer {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+    
+    .amount {
+        font-weight: bold;
+    }
+    
+    .amount.positive {
+        color: #28a745;
+    }
+    
+    .amount.negative {
+        color: #dc3545;
+    }
+    
+    .description-text {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .no-transactions {
+        text-align: center;
+        padding: 50px 0;
+    }
+    
+    .action-button {
+        display: inline-block;
+        background-color: #6c757d;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-top: 15px;
+        transition: background-color 0.3s;
+    }
+    
+    .action-button:hover {
+        background-color: #5a6268;
+    }
+    
+    @media (max-width: 768px) {
+        .filter-group {
+            width: 100%;
+        }
+        
+        .transaction-filters form {
+            flex-direction: column;
+        }
+        
+        .summary-bar {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .transaction-stats {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<!-- Add Font Awesome for icons -->
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+{% endblock %}

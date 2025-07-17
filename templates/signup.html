@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %} SignUp {% endblock %}
+{% block link %}
+<link rel="stylesheet" href="./static/contact.css">
+{% endblock %}
+{% block content %}
+
+<div class="master">
+    <div class="form-container" style="margin-bottom: 30px; padding: 20px;">
+        <h1>Sign Up</h1>
+        <form method="POST" action="/signup">
+            <label for="username">Username:</label><br>
+            <input type="text" id="username" name="username" placeholder="Enter your username" required
+                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; width:190.909px; padding: 10px; background-color: #f9f9f9;"><br><br>
+
+            <label for="email">Email:</label><br>
+            <input type="email" id="email" name="email" placeholder="Enter your email" required
+                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; width:190.909px; padding: 10px; background-color: #f9f9f9;"><br><br>
+
+            <label for="password">Password:</label><br>
+            <div
+                style="display: flex; align-items: center; border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; padding: 5px; background-color: #f9f9f9;">
+                <input type="password" id="password" name="password" placeholder="Enter your password" required
+                    style="background-color: #f9f9f9;border: none; outline: none; flex: 1;">
+                <img src="{{ url_for('static', filename='visible.svg') }}" id="togglePassword"
+                    style="cursor: pointer; width: 24px; height: 24px;filter: brightness(0) invert(0);">
+            </div>
+            <br>
+
+            <label for="confirm_password">Confirm Password:</label><br>
+            <div
+                style="display: flex; align-items: center; border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; padding: 5px; background-color: #f9f9f9;">
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password"
+                    required style="background-color: #f9f9f9; border: none; outline: none; flex: 1;">
+                <img src="{{ url_for('static', filename='visible.svg') }}" id="toggleConfirmPassword"
+                    style="cursor: pointer; width: 24px; height: 24px;filter: brightness(0) invert(0);">
+            </div><br>
+            <button type="submit">Sign Up</button>
+        </form>
+        <div class="login">
+            <p>Already have an account?</p>
+            <button><a href="{{ url_for('login') }}" style="text-decoration:none; color: black;">Sign in</a></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelector('form').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.submit();
+            }
+        });
+
+        const togglePassword = document.querySelector('#togglePassword');
+        const password = document.querySelector('#password');
+        togglePassword.addEventListener('click', function (e) {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            this.src = type === 'password' ? "{{ url_for('static', filename='visible.svg') }}" : "{{ url_for('static', filename='non_visible.svg') }}";
+        });
+
+        const toggleConfirmPassword = document.querySelector('#toggleConfirmPassword');
+        const confirmPassword = document.querySelector('#confirm_password');
+        toggleConfirmPassword.addEventListener('click', function (e) {
+            const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+            confirmPassword.setAttribute('type', type);
+            this.src = type === 'password' ? "{{ url_for('static', filename='visible.svg') }}" : "{{ url_for('static', filename='non_visible.svg') }}";
+        });
+    });
+</script>
+
+{% endblock %}

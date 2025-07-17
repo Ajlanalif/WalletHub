@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %} Home {% endblock %}
+{% block content %}
+<div class="banner-container">
+    <section id="banner">
+        <h1 id="bigtxt">Take Control of Your Money with WalletHub</h1>
+        <p id="midtxt">"Effortlessly track your income, expenses, and bank transfers all in one place."</p>
+        <button class="btn"><a href="{{url_for('signup')}}" style="text-decoration: none;"><span>Get Started</span></a></button>
+    </section>
+</div>
+
+<section id="features">
+    <h1 class="bigtxt">Why WalletHub?</h1>
+    <p class="midtxt">Your Ultimate Financial Tracking Tool</p>
+    <div class="features-container">
+        <div class="feature">
+            <div class="ftup">
+                <img src="  ./static/expense.png" alt="">
+                <h3>Track Expenses</h3>
+            </div>
+            <p>Organize your spending across categories and accounts.</p>
+        </div>
+        <div class="feature">
+            <div class="ftup">
+                <img src="././static/income.png" alt="">
+                <h3>Income & Transfers</h3>
+            </div>
+            <p>Easily track income and manage balance transfers.</p>
+        </div>
+        <div class="feature">
+            <div class="ftup">
+                <img src="././static/budget.png" alt="">
+                <h3>Budget Alerts</h3>
+            </div>
+            <p>Set budgets and get notified if you exceed your limit.</p>
+        </div>
+        <div class="feature">
+            <div class="ftup">
+                <img src="././static/business-report.png" alt="">
+                <h3>Financial Reports</h3>
+            </div>
+            <p>Visualize your financial health with reports and charts.</p>
+        </div>
+    </div>
+</section>
+
+<section id="work">
+    <h1 class="bigtxt">How WalletHub Helps You Manage Your Money</h1>
+    <ul class="midtxt">
+        <li><b>Step-1:</b> "Create an account and connect your accounts (wallet, bank, MFS)."</li>
+        <li><b>Step-2:</b> "Track your income, expenses, and transfers in real-time."</li>
+        <li><b>Step-3:</b> "Set budgets and receive alerts if you overspend."</li>
+        <li><b>Step-4:</b> "View financial reports and optimize your savings."</li>
+    </ul>
+</section>
+<section id="cta-container">
+    <section id="cta">
+        <h1>Start Managing Your Money Today!</h1>
+        <p>"Sign up now and get started with our easy-to-use expense tracker."</p>
+        <button class="btn"><a href="{{url_for('signup')}}" style="text-decoration: none;"><span>Sign Up</span></a></button>
+    </section>
+
+</section>
+{% endblock %}

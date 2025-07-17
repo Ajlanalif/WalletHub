@@ -1,0 +1,195 @@
+<div class="loan-details">
+    <div class="loan-details-header">
+        <h4>Loan from {{ loan.lender_name }}</h4>
+        <p class="loan-amount">Amount: {{ loan.amount }}/=</p>
+    </div>
+    
+    <div class="loan-details-info">
+        <div class="loan-info-item">
+            <span class="label">Date Taken:</span>
+            <span class="value">{{ loan.date_taken.strftime('%Y-%m-%d') }}</span>
+        </div>
+        <div class="loan-info-item">
+            <span class="label">Due Date:</span>
+            <span class="value">{{ loan.return_date.strftime('%Y-%m-%d') }}</span>
+        </div>
+        <div class="loan-info-item">
+            <span class="label">Remaining Amount:</span>
+            <span class="value">{{ loan.remaining_amount }}/=</span>
+        </div>
+        <div class="loan-info-item">
+            <span class="label">Status:</span>
+            <span class="value status-badge {{ 'repaid' if loan.is_repaid else 'active' }}">
+                {{ 'Repaid' if loan.is_repaid else 'Active' }}
+            </span>
+        </div>
+        {% if loan.notes %}
+        <div class="loan-notes">
+            <span class="label">Notes:</span>
+            <p>{{ loan.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    {% if expense_transaction %}
+    <div class="related-expense">
+        <h5>Related Expense</h5>
+        <div class="transaction-item">
+            <div class="transaction-info">
+                <span class="label">Category:</span>
+                <span class="value">{{ expense_transaction.category }}</span>
+            </div>
+            <div class="transaction-info">
+                <span class="label">Amount:</span>
+                <span class="value">{{ expense_transaction.amount }}/=</span>
+            </div>
+            <div class="transaction-info">
+                <span class="label">Date:</span>
+                <span class="value">{{ expense_transaction.timestamp.strftime('%Y-%m-%d') }}</span>
+            </div>
+            {% if expense_transaction.description %}
+            <div class="transaction-info">
+                <span class="label">Description:</span>
+                <span class="value">{{ expense_transaction.description }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="repayments-section">
+        <h5>Repayment History</h5>
+        {% if repayments %}
+        <table class="repayments-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Source</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for repayment in repayments %}
+                <tr>
+                    <td>{{ repayment.date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ repayment.amount }}/=</td>
+                    <td>
+                        {% if repayment.source_type == 'wallet' %}
+                            Cash
+                        {% elif repayment.source_type == 'bank' %}
+                            {{ repayment.source_bank_name }} ({{ repayment.source_account_number }})
+                        {% elif repayment.source_type == 'mfs' %}
+                            {{ repayment.source_mfs_name }} ({{ repayment.source_mfs_number }})
+                        {% else %}
+                            {{ repayment.source_type }}
+                        {% endif %}
+                    </td>
+                    <td>{{ repayment.notes or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="1"><strong>Total Repaid:</strong></td>
+                    <td><strong>{{ total_repaid }}/=</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
+        </table>
+        {% else %}
+        <p class="no-repayments">No repayments made yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .loan-details {
+        padding: 10px;
+    }
+    
+    .loan-details-header {
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .loan-amount {
+        font-size: 18px;
+        font-weight: bold;
+        color: #dc3545;
+    }
+    
+    .loan-details-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .loan-notes {
+        grid-column: span 2;
+    }
+    
+    .label {
+        font-weight: bold;
+        color: #555;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .status-badge.repaid {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .status-badge.active {
+        background-color: #17a2b8;
+        color: white;
+    }
+    
+    .related-expense, .repayments-section {
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+    
+    .repayments-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    
+    .repayments-table th, .repayments-table td {
+        padding: 8px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .repayments-table th {
+        background-color: #f8f9fa;
+    }
+    
+    .no-repayments {
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .loading-spinner {
+        text-align: center;
+        padding: 30px;
+        color: #6c757d;
+    }
+    
+    .error-message {
+        color: #dc3545;
+        text-align: center;
+        padding: 20px;
+    }
+</style>

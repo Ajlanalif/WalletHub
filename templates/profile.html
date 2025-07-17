@@ -1,0 +1,603 @@
+{% extends "base.html" %}
+{% block title %} Profile {% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="profile-container">
+        <div class="profile-header">
+            <h1>Profile</h1>
+            <p>Manage your personal information and account settings</p>
+        </div>
+
+        <div class="profile-content">
+            <div class="profile-left">
+                <div class="profile-photo-section">
+                    <div class="profile-photo">
+                        {% if user_details.photo %}
+                            <img src="{{ url_for('static', filename=user_details.photo.replace('static/', '')) }}" alt="Profile Photo">
+                        {% else %}
+                            <img src="static/uploads/default.webp" alt="">
+                        {% endif %}
+                    </div>
+                    <h2>{{ user_details.first_name }} {{ user_details.last_name }}</h2>
+                    <p class="username">@{{ user.username }}</p>
+                    
+                    <form action="{{ url_for('profile') }}" method="POST" enctype="multipart/form-data" class="photo-form">
+                        <div class="form-group">
+                            <label for="photo">Change Profile Photo</label>
+                            <input type="file" name="photo" id="photo" accept="image/*" required>
+                        </div>
+                        <button type="submit" name="update_photo" class="update-button">Update Photo</button>
+                    </form>
+                </div>
+
+                <div class="account-summary">
+                    <h3>Account Summary</h3>
+                    <div class="summary-item">
+                        <span class="item-label">Username:</span>
+                        <span class="item-value">{{ user.username }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="item-label">Email:</span>
+                        <span class="item-value">{{ user.email }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="item-label">Bank Accounts:</span>
+                        <span class="item-value">{{ bank_count }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="item-label">MFS Accounts:</span>
+                        <span class="item-value">{{ mfs_count }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="item-label">Wallet:</span>
+                        <span class="item-value">{{ 'Active' if wallet_exists else 'Not Set Up' }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="item-label">Transactions:</span>
+                        <span class="item-value">{{ transactions_count }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="item-label">Loans:</span>
+                        <span class="item-value">{{ loans_count }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-right">
+                <div class="tab-container">
+                    <div class="tab-buttons">
+                        <button class="tab-button active" onclick="openTab(event, 'personal-info')">Personal Information</button>
+                        <button class="tab-button" onclick="openTab(event, 'security')">Security</button>
+                    </div>
+
+                    <div id="personal-info" class="tab-content active">
+                        <h3>Personal Information</h3>
+                        <form action="{{ url_for('profile') }}" method="POST" class="profile-form">
+                            <div class="form-group">
+                                <label for="first_name">First Name</label>
+                                <input type="text" name="first_name" id="first_name" value="{{ user_details.first_name }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="last_name">Last Name</label>
+                                <input type="text" name="last_name" id="last_name" value="{{ user_details.last_name }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="address">Address</label>
+                                <textarea name="address" id="address" rows="3">{{ user_details.address }}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="phone_number">Phone Number</label>
+                                <input type="tel" name="phone_number" id="phone_number" value="{{ user_details.phone_number }}">
+                            </div>
+                            <button type="submit" name="update_details" class="submit-button">Save Changes</button>
+                        </form>
+                    </div>
+
+                    <div id="security" class="tab-content">
+                        <h3>Change Password</h3>
+                        <form action="{{ url_for('profile') }}" method="POST" class="profile-form">
+                            <div class="form-group">
+                                <label for="current_password">Current Password</label>
+                                <input type="password" name="current_password" id="current_password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new_password">New Password</label>
+                                <input type="password" name="new_password" id="new_password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm_password">Confirm New Password</label>
+                                <input type="password" name="confirm_password" id="confirm_password" required>
+                            </div>
+                            <div class="password-requirements">
+                                <p>Password must be at least 8 characters long and include:</p>
+                                <ul>
+                                    <li>At least one uppercase letter</li>
+                                    <li>At least one lowercase letter</li>
+                                    <li>At least one number</li>
+                                    <li>At least one special character</li>
+                                </ul>
+                            </div>
+                            <button type="submit" name="change_password" class="submit-button">Change Password</button>
+                        </form>
+                        <div class="danger-zone">
+                            <h3>Danger Zone</h3>
+                            <div class="danger-container">
+                                <div class="danger-info">
+                                    <h4>Delete Account</h4>
+                                    <p>Warning: This action will permanently delete your account and all associated data including:</p>
+                                    <ul>
+                                        <li>All bank accounts and balances</li>
+                                        <li>All mobile financial service accounts</li>
+                                        <li>All transaction history</li>
+                                        <li>All loans and loan history</li>
+                                        <li>Wallet and personal information</li>
+                                    </ul>
+                                    <p class="warning-text">This action cannot be undone.</p>
+                                </div>
+                                <button type="button" id="deleteAccountBtn" class="delete-button">Delete Account</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- Delete Account Confirmation Modal -->
+<div id="deleteAccountModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirm Account Deletion</h3>
+            <span class="close-modal" id="deleteModalClose">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p class="warning-text">You are about to permanently delete your account and all data associated with it.</p>
+            <p>Please type <strong>DELETE</strong> to confirm:</p>
+            <form action="{{ url_for('delete_account') }}" method="POST" id="deleteAccountForm">
+                <div class="form-group">
+                    <input type="text" id="deleteConfirmation" name="delete_confirmation" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Enter your password to confirm:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="cancel-button" id="cancelDeleteBtn">Cancel</button>
+                    <button type="submit" class="delete-button" id="confirmDeleteBtn" disabled>Permanently Delete Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</div>
+
+<style>
+    .profile-container {
+        max-width: 1200px;
+        margin: 20px auto;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+    }
+
+    .profile-header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .profile-header h1 {
+        margin-bottom: 5px;
+        color: #333;
+    }
+
+    .profile-header p {
+        color: #777;
+    }
+
+    .profile-content {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 30px;
+    }
+
+    .profile-left {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .profile-right {
+        flex: 2;
+        min-width: 500px;
+    }
+
+    .profile-photo-section {
+        background-color: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .profile-photo {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        margin: 0 auto 15px;
+        overflow: hidden;
+        border: 3px solid #007bff;
+    }
+
+    .profile-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .default-avatar {
+        width: 100%;
+        height: 100%;
+        background-color: #007bff;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+        font-weight: bold;
+    }
+
+    .username {
+        color: #666;
+        margin-bottom: 20px;
+    }
+
+    .photo-form {
+        margin-top: 15px;
+    }
+
+    .account-summary {
+        background-color: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+    }
+
+    .account-summary h3 {
+        margin-bottom: 15px;
+        color: #333;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .summary-item:last-child {
+        border-bottom: none;
+    }
+
+    .item-label {
+        font-weight: bold;
+        color: #555;
+    }
+
+    .item-value {
+        color: #333;
+    }
+
+    .tab-container {
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .tab-buttons {
+        display: flex;
+        background-color: #eee;
+    }
+
+    .tab-button {
+        padding: 15px 25px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        flex: 1;
+        font-size: 16px;
+        transition: background-color 0.3s;
+    }
+
+    .tab-button:hover {
+        background-color: #ddd;
+    }
+
+    .tab-button.active {
+        background-color: #f9f9f9;
+        font-weight: bold;
+        border-bottom: 3px solid #007bff;
+    }
+
+    .tab-content {
+        padding: 25px;
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .profile-form {
+        max-width: 600px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #444;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+
+    .submit-button,
+    .update-button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+    }
+
+    .submit-button:hover,
+    .update-button:hover {
+        background-color: #0056b3;
+    }
+
+    .password-requirements {
+        background-color: #f0f0f0;
+        padding: 10px 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+
+    .password-requirements p {
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+
+    .password-requirements ul {
+        margin-left: 20px;
+    }
+
+    @media (max-width: 900px) {
+        .profile-content {
+            flex-direction: column;
+        }
+
+        .profile-left,
+        .profile-right {
+            width: 100%;
+        }
+    }
+    .danger-zone {
+    margin-top: 40px;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 20px;
+}
+
+.danger-container {
+    background-color: #fff0f0;
+    border: 1px solid #ffcdd2;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 15px;
+}
+
+.danger-info {
+    flex: 1;
+}
+
+.danger-info h4 {
+    color: #d32f2f;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.danger-info ul {
+    margin-bottom: 15px;
+    padding-left: 20px;
+}
+
+.danger-info li {
+    margin-bottom: 5px;
+}
+
+.warning-text {
+    color: #d32f2f;
+    font-weight: bold;
+}
+
+.delete-button {
+    background-color: #d32f2f;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.delete-button:hover {
+    background-color: #b71c1c;
+}
+
+.delete-button:disabled {
+    background-color: #e0e0e0;
+    color: #9e9e9e;
+    cursor: not-allowed;
+}
+
+.cancel-button {
+    background-color: #e0e0e0;
+    color: #333;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.cancel-button:hover {
+    background-color: #bdbdbd;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 10% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 500px;
+    max-width: 90%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+    border-radius: 8px 8px 0 0;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #d32f2f;
+}
+
+.close-modal {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-modal:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+}
+</style>
+
+<script>
+    function openTab(evt, tabName) {
+        // Hide all tab content
+        const tabContents = document.getElementsByClassName("tab-content");
+        for (let i = 0; i < tabContents.length; i++) {
+            tabContents[i].classList.remove("active");
+        }
+
+        // Remove active class from all tab buttons
+        const tabButtons = document.getElementsByClassName("tab-button");
+        for (let i = 0; i < tabButtons.length; i++) {
+            tabButtons[i].classList.remove("active");
+        }
+
+        // Show the current tab, and add "active" class to the button that opened the tab
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+    // Delete Account Modal Functionality
+const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+const deleteAccountModal = document.getElementById('deleteAccountModal');
+const deleteModalClose = document.getElementById('deleteModalClose');
+const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+const deleteConfirmationInput = document.getElementById('deleteConfirmation');
+
+// Open delete modal
+deleteAccountBtn.addEventListener('click', function() {
+    deleteAccountModal.style.display = 'block';
+    deleteConfirmationInput.value = '';
+    confirmDeleteBtn.disabled = true;
+});
+
+// Close delete modal when clicking X
+deleteModalClose.addEventListener('click', function() {
+    deleteAccountModal.style.display = 'none';
+});
+
+// Close delete modal when clicking Cancel
+cancelDeleteBtn.addEventListener('click', function() {
+    deleteAccountModal.style.display = 'none';
+});
+
+// Check if user typed DELETE correctly
+deleteConfirmationInput.addEventListener('input', function() {
+    if (this.value === 'DELETE') {
+        confirmDeleteBtn.disabled = false;
+    } else {
+        confirmDeleteBtn.disabled = true;
+    }
+});
+
+// Close modal when clicking outside
+window.addEventListener('click', function(event) {
+    if (event.target === deleteAccountModal) {
+        deleteAccountModal.style.display = 'none';
+    }
+});
+
+// Confirm form submission
+document.getElementById('deleteAccountForm').addEventListener('submit', function(e) {
+    if (!confirm('Are you absolutely sure you want to delete your account? This action CANNOT be undone.')) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

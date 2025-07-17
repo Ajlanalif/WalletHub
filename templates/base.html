@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" sizes="512x512" href="{{ url_for('static', filename='favicon_io/android-chrome-512x512.png') }}"
+        type="image/x-icon">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <title>{% block title %} {% endblock %}</title>
+    {% block link %} {% endblock %}
+</head>
+
+<body>
+
+    <nav>
+        <div id="nav-left">
+            <a href="{{ url_for('home') }}"><img src="{{ url_for('static', filename='fintrack.png') }}" alt=""
+                    id="nav-left-img"></a>
+            <h1 id="logo-name">
+                <a href="{{ url_for('home') }}" style="text-decoration: none;"><span class="grn-bold">W</span><span
+                        class="bld">allet</span><span class="grn-bold">H</span><span class="bld">ub</span></a>
+            </h1>
+        </div>
+        <div id="nav-right">
+            <ul class="nav-con">
+
+                {% if current_user.is_authenticated %}
+                {% if current_user.is_admin %}
+                <li><a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-shield-alt"></i> Admin</a></li>
+                <form method="POST" action="{{ url_for('logout') }}" style="margin: 0;">
+                    <button type="submit" class="logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </form>
+                {%else%}
+                <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('contact') }}">Contact</a></li>
+                
+                <li>
+                    <div class="dropdown">
+                        <button class="dropbtn"
+                            style="background-color: black; border-radius: 10px; font-size: 15px; color: white;">
+                            {%if user_details.first_name or user_details.last_name%}
+                            {{ user_details.first_name }} {{ user_details.last_name }}
+                            {% else %}
+                            {{ current_user.username }}
+                            {% endif %}
+                        </button>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('profile') }}">Profile</a>
+                            <a href="{{ url_for('loans') }}">Add-Loan</a>
+                            <a href="{{ url_for('all_transactions') }}">All transaction</a>
+                            <form method="POST" action="{{ url_for('logout') }}" style="margin: 0;">
+                                <button type="submit"
+                                    style="border: none; width: 100%;">Logout</button>
+                            </form>
+                        </div>
+                    </div>
+                </li>
+                {% endif %}
+                {% else %}
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="/#features">Features</a></li>
+                <li><a href="{{ url_for('contact') }}">Contact</a></li>
+                <li>
+                    <button style="background-color: green; border-radius: 10px; font-size: 20px;">
+                        <a href="{{ url_for('login') }}" style="text-decoration: none; color: white;">Log in</a>
+                    </button>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    {% block content %}
+    {% endblock %}
+
+    <footer>
+        <h4>Follow us on</h4>
+        <div id="social-container">
+            <a href="https://www.facebook.com" target="_blank" rel="noopener noreferrer"><img
+                    src="{{ url_for('static', filename='facebook.png') }}" alt=""></a>
+            <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer"><img
+                    src="{{ url_for('static', filename='instagram.png') }}" alt=""></a>
+            <a href="https://www.twitter.com" target="_blank" rel="noopener noreferrer"><img
+                    src="{{ url_for('static', filename='twitter.png') }}" alt=""></a>
+            <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer"><img
+                    src="{{ url_for('static', filename='linkedin.png') }}" alt=""></a>
+        </div>
+        <a href="{{ url_for('contact') }}" style="text-decoration: none;">Contact Me</a>
+        <p>Made By Sayed Ajlan Al Alif</p>
+    </footer>
+    <div class="floating-window" id="floating-window">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="floating-window {{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var floatingWindows = document.querySelectorAll('.floating-window');
+            floatingWindows.forEach(function (floatingWindow) {
+                if (floatingWindow.innerText.trim() !== '') {
+                    floatingWindow.style.display = 'block';
+                    setTimeout(function () {
+                        floatingWindow.style.display = 'none';
+                    }, 5000);
+                }
+            });
+            var dropbtn = document.querySelector('.dropbtn');
+            var dropdownContent = document.querySelector('.dropdown-content');
+
+            dropbtn.addEventListener('click', function (event) {
+                event.stopPropagation(); // Prevent closing when clicking the button
+                dropdownContent.style.display = (dropdownContent.style.display === 'block') ? 'none' : 'block';
+            });
+
+            document.addEventListener('click', function (event) {
+                if (!dropbtn.contains(event.target) && !dropdownContent.contains(event.target)) {
+                    dropdownContent.style.display = 'none';
+                }
+            });
+        });
+    </script>
+
+
+</body>
+
+</html>

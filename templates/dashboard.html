@@ -1,0 +1,1304 @@
+{% extends "base.html" %}
+{% block title %} Dashboard {% endblock %}
+{% block link %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{% endblock %}
+{% block content %}
+
+<div class="master">
+    <div class="form-container">
+        <h1>Hello, {{ user_details.last_name }}!</h1><br><br>
+        <h2>Your Total Balance: {{ total_balance }}/=</h2>
+
+        <!-- Balance Tiles -->
+        <div class="balance-container">
+            <!-- Loan Tile - Only shows if user has active loans -->
+            {% if active_loans %}
+            <a href="{{ url_for('loans') }}" class="balance-tile-link">
+                <div class="balance-tile loan">
+                    <h3>Active Loans</h3>
+                    <p><strong>Total:</strong> {{ active_loans_amount }}/=</p>
+                    <p class="tile-hint">{{ active_loans|length }} loan(s) active</p>
+                    {% if due_soon_loans %}
+                    <div class="loan-due-badge">{{ due_soon_loans|length }} due soon</div>
+                    {% endif %}
+                </div>
+            </a>
+            {% endif %}
+            <a href="{{ url_for('bank_transactions') }}" class="balance-tile-link">
+                <div class="balance-tile bank">
+                    <h3>Bank Balance</h3>
+                    <p><strong>Total:</strong> {{ bank_balance }}/=</p>
+                    <p class="tile-hint">Click to view bank transactions</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('mfs_transactions') }}" class="balance-tile-link">
+                <div class="balance-tile mfs">
+                    <h3>Mobile Banking Balance</h3>
+                    <p><strong>Total:</strong> {{ mfs_balance }}/=</p>
+                    <p class="tile-hint">Click to view mobile banking transactions</p>
+                </div>
+            </a>
+
+            <a href="{{ url_for('wallet_transactions') }}" class="balance-tile-link">
+                <div class="balance-tile wallet">
+                    <h3>Cash Balance</h3>
+                    <p><strong>Total:</strong> {{ wallet_balance }}/=</p>
+                    <p class="tile-hint">Click to view cash transactions</p>
+                </div>
+            </a>
+        </div>
+
+        <div class="view-all-container">
+            <a href="{{ url_for('monthly_tracker') }}" class="view-all-button">
+                <i class="fas fa-list"></i> View Transaction Summary of this Month
+            </a>
+        </div>
+
+        <div class="transaction-container">
+            <div class="transaction-buttons">
+                <button onclick="showForm('income')" class="tab-button active">Income</button>
+                <button onclick="showForm('expense')" class="tab-button">Expense</button>
+                <button onclick="showForm('transfer')" class="tab-button">Transfer</button>
+            </div>
+            <h2>Enter Transaction</h2>
+
+            <!-- Income Form -->
+            <div id="income-form" class="transaction-form hidden">
+                <h3>Income</h3>
+                <form method="POST" action="{{ url_for('income') }}">
+                    <input type="hidden" name="transaction_type" value="income">
+                    <label for="income_account_type">Account Type:</label>
+                    <select id="income_account_type" name="account_type"
+                        onchange="toggleFields('income_account_type','income_bank_fields','income_mfs_fields')"
+                        required>
+                        <option value="">Select Account Type</option>
+                        <option value="wallet">Cash</option>
+                        <option value="bank">Bank</option>
+                        <option value="mfs"> Mobile Banking Service</option>
+                    </select><br><br>
+
+                    <div id="income_bank_fields" class="hidden">
+                        <label>Bank Name:</label>
+                        <select name="bank_name">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.bank_name }}">{{ bank.bank_name }}</option>
+                            {% endfor %}
+                        </select><br><br>
+
+                        <label>Account No:</label>
+                        <select name="bank_acc_no">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.account_number }}">{{ bank.account_number }}</option>
+                            {% endfor %}
+                        </select><br><br>
+                    </div>
+
+                    <div id="income_mfs_fields" class="hidden">
+                        <label>  Mobile Banking Service Name:</label>
+                        <select name="mfs_name">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.mfs_name }}">{{ mfs.mfs_name }}</option>
+                            {% endfor %}
+                        </select><br><br>
+
+                        <label>Account No:</label>
+                        <select name="mfs_acc_no">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.account_no }}">{{ mfs.account_no }}</option>
+                            {% endfor %}
+                        </select><br><br>
+                    </div>
+                    <label for="description">Income Source:</label>
+                    <input type="text" list="income-source-options" id="description" name="description"
+                        placeholder="Type to search sources..." required>
+                    <datalist id="income-source-options">
+                        <option value="Salary">Salary</option>
+                        <option value="Freelance Work">Freelance Work</option>
+                        <option value="Business Income">Business Income</option>
+                        <option value="Investments">Investments</option>
+                        <option value="Dividends">Dividends</option>
+                        <option value="Rental Income">Rental Income</option>
+                        <option value="Interest">Interest</option>
+                        <option value="Royalties">Royalties</option>
+                        <option value="Commission">Commission</option>
+                        <option value="Bonus">Bonus</option>
+                        <option value="Gifts">Gifts</option>
+                        <option value="Tax Refund">Tax Refund</option>
+                        <option value="Social Security">Social Security</option>
+                        <option value="Pension">Pension</option>
+                        <option value="Alimony">Alimony</option>
+                        <option value="Child Support">Child Support</option>
+                        <option value="Lottery/Gambling">Lottery/Gambling</option>
+                        <option value="Other">Other</option>
+                    </datalist><br><br>
+                    <label for="income_amount">Amount:</label>
+                    <input type="number" id="income_amount" name="amount" step="0.01" required><br><br>
+
+                    <label for="income_date">Date:</label>
+                    <input type="date" id="income_date" name="date" value="{{ today_date }}" required><br><br>
+
+                    <button type="submit">Submit Income</button>
+                </form>
+
+            </div>
+
+            <!-- Expense Form -->
+            <div id="expense-form" class="transaction-form">
+                <h3>Expense</h3>
+                <form method="POST" action="{{ url_for('expense') }}">
+                    <input type="hidden" name="transaction_type" value="expense">
+                    <label for="expense_account_type">Account Type:</label>
+                    <select id="expense_account_type" name="account_type"
+                        onchange="toggleFields('expense_account_type','expense_bank_fields','expense_mfs_fields')"
+                        required>
+                        <option value="">Select Account Type</option>
+                        <option value="wallet">Cash</option>
+                        <option value="bank">Bank</option>
+                        <option value="mfs">  Mobile Banking Service</option>
+                    </select><br><br>
+
+                    <div id="expense_bank_fields" class="hidden">
+                        <label>Bank Name:</label>
+                        <select name="bank_name">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.bank_name }}">{{ bank.bank_name }}</option>
+                            {% endfor %}
+                        </select><br><br>
+
+                        <label>Account No:</label>
+                        <select name="bank_acc_no">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.account_number }}">{{ bank.account_number }}</option>
+                            {% endfor %}
+                        </select><br><br>
+                    </div>
+
+                    <div id="expense_mfs_fields" class="hidden">
+                        <label> Mobile Banking Service Name:</label>
+                        <select name="mfs_name">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.mfs_name }}">{{ mfs.mfs_name }}</option>
+                            {% endfor %}
+                        </select><br><br>
+
+                        <label>Account No:</label>
+                        <select name="mfs_acc_no">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.account_no }}">{{ mfs.account_no }}</option>
+                            {% endfor %}
+                        </select><br><br>
+                    </div>
+
+
+
+                    <label for="expense_amount">Amount:</label>
+                    <input type="number" id="expense_amount" name="amount" step="0.01" required><br><br>
+
+                    <!-- REPLACED SELECT WITH INPUT+DATALIST -->
+                    <label for="expense_category">Category:</label>
+                    <input type="text" list="category-options" id="expense_category" name="category"
+                        placeholder="Type to search categories..." required>
+                    <datalist id="category-options">
+                        <option value="Housing">Housing</option>
+                        <option value="Groceries">Groceries</option>
+                        <option value="Transportation">Transportation</option>
+                        <option value="Healthcare">Healthcare</option>
+                        <option value="Education">Education</option>
+                        <option value="Communication">Communication</option>
+                        <option value="Debt Repayment">Debt Repayment</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Dining Out">Dining Out</option>
+                        <option value="Travel & Vacation">Travel & Vacation</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Hobbies & Leisure">Hobbies & Leisure</option>
+                        <option value="Savings">Savings</option>
+                        <option value="Investments">Investments</option>
+                        <option value="Retirement Planning">Retirement Planning</option>
+                        <option value="Balance Transfers">Balance Transfers</option>
+                        <option value="Loans & Repayments">Loans & Repayments</option>
+                        <option value="Gifts & Donations">Gifts & Donations</option>
+                        <option value="Childcare & Education">Childcare & Education</option>
+                        <option value="Pet Care">Pet Care</option>
+                        <option value="Bank & Service Fees">Bank & Service Fees</option>
+                        <option value="Subscriptions">Subscriptions</option>
+                        <option value="Fines & Penalties">Fines & Penalties</option>
+                        <option value="Personal Care">Personal Care</option>
+                        <option value="Medicine">Medicine</option>
+                    </datalist><br><br>
+
+                    <label for="expense_date">Date:</label>
+                    <input type="date" id="expense_date" name="date" value="{{ today_date }}" required><br><br>
+
+                    <button type="submit">Submit Expense</button>
+                </form>
+            </div>
+
+            <!-- Transfer Form -->
+            <div id="transfer-form" class="transaction-form hidden">
+                <h3>Transfer</h3>
+                <form method="POST" action="{{ url_for('transfer') }}">
+                    <input type="hidden" name="transaction_type" value="transfer">
+
+                    <!-- Sender Section -->
+                    <h4>From (Sender)</h4>
+                    <label for="sender_account_type">Account Type:</label>
+                    <select id="sender_account_type" name="sender_account_type"
+                        onchange="toggleFields('sender_account_type','sender_bank_fields','sender_mfs_fields')"
+                        required>
+                        <option value="">Select Account Type</option>
+                        <option value="wallet">Cash</option>
+                        <option value="bank">Bank</option>
+                        <option value="mfs"> Mobile Banking Service</option>
+                    </select><br><br>
+
+                    <div id="sender_bank_fields" class="hidden">
+                        <label>Bank Name:</label>
+                        <select name="sender_bank_name">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.bank_name }}">{{ bank.bank_name }}</option>
+                            {% endfor %}
+                        </select><br><br>
+
+                        <label>Account No:</label>
+                        <select name="sender_bank_acc_no">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.account_number }}">{{ bank.account_number }}</option>
+                            {% endfor %}
+                        </select><br><br>
+                    </div>
+
+                    <div id="sender_mfs_fields" class="hidden">
+                        <label> Mobile Banking Service Name:</label>
+                        <select name="sender_mfs_name">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.mfs_name }}">{{ mfs.mfs_name }}</option>
+                            {% endfor %}
+                        </select><br><br>
+
+                        <label>Account No:</label>
+                        <select name="sender_mfs_acc_no">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.account_no }}">{{ mfs.account_no }}</option>
+                            {% endfor %}
+                        </select><br><br>
+                    </div>
+
+                    <!-- Receiver Section -->
+                    <h4>To (Receiver)</h4>
+                    <label for="receiver_account_type">Account Type:</label>
+                    <select id="receiver_account_type" name="receiver_account_type"
+                        onchange="toggleFields('receiver_account_type','receiver_bank_fields','receiver_mfs_fields')"
+                        required>
+                        <option value="">Select Account Type</option>
+                        <option value="wallet">Cash</option>
+                        <option value="bank">Bank</option>
+                        <option value="mfs"> Mobile Banking Service</option>
+                    </select><br><br>
+
+                    <div id="receiver_bank_fields" class="hidden">
+                        <label>Bank Name:</label>
+                        <select name="receiver_bank_name">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.bank_name }}">{{ bank.bank_name }}</option>
+                            {% endfor %}
+                        </select><br><br>
+
+                        <label>Account No:</label>
+                        <select name="receiver_bank_acc_no">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.account_number }}">{{ bank.account_number }}</option>
+                            {% endfor %}
+                        </select><br><br>
+                    </div>
+
+                    <div id="receiver_mfs_fields" class="hidden">
+                        <label> Mobile Banking Service Name:</label>
+                        <select name="receiver_mfs_name">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.mfs_name }}">{{ mfs.mfs_name }}</option>
+                            {% endfor %}
+                        </select><br><br>
+
+                        <label>Account No:</label>
+                        <select name="receiver_mfs_acc_no">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.account_no }}">{{ mfs.account_no }}</option>
+                            {% endfor %}
+                        </select><br><br>
+                    </div>
+
+                    <label for="transfer_amount">Amount:</label>
+                    <input type="number" id="transfer_amount" name="amount" step="0.01" required><br><br>
+
+                    <label for="transfer_date">Date:</label>
+                    <input type="date" id="transfer_date" name="date" value="{{ today_date }}" required><br><br>
+
+                    <button type="submit">Submit Transfer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Insufficient Funds / Loan Modal -->
+    <div id="loanModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Insufficient Funds</h3>
+                <span class="close-modal" id="loanModalClose">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>You don't have enough balance in the selected account.</p>
+                <p>Would you like to record this as a loan?</p>
+
+                <form id="loanForm" method="POST" action="{{ url_for('create_loan_for_expense') }}">
+                    <input type="hidden" name="expense_account_type" id="loan_expense_account_type">
+                    <input type="hidden" name="bank_name" id="loan_bank_name">
+                    <input type="hidden" name="bank_acc_no" id="loan_bank_acc_no">
+                    <input type="hidden" name="mfs_name" id="loan_mfs_name">
+                    <input type="hidden" name="mfs_acc_no" id="loan_mfs_acc_no">
+                    <input type="hidden" name="expense_amount" id="loan_expense_amount">
+                    <input type="hidden" name="expense_category" id="loan_expense_category">
+                    <input type="hidden" name="expense_date" id="loan_expense_date">
+                    <input type="hidden" name="expense_description" id="loan_expense_description">
+
+                    <div class="form-group">
+                        <label for="lender_name">Lender Name:</label>
+                        <input type="text" id="lender_name" name="lender_name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loan_amount">Loan Amount:</label>
+                        <input type="number" id="loan_amount" name="loan_amount" step="0.01" required>
+                        <small>Must be equal to or greater than the expense amount.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="return_date">Return Date:</label>
+                        <input type="date" id="return_date" name="return_date" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loan_notes">Notes:</label>
+                        <textarea id="loan_notes" name="loan_notes"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" id="cancelLoanButton" class="cancel-button">Cancel</button>
+                        <button type="submit" class="submit-button">Take Loan & Complete Expense</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    // This object will be populated by Jinja template
+    window.ACCOUNT_DATA = {
+        bankAccounts: {},
+        mfsAccounts: {}
+    };
+</script>
+<style>
+    .master {
+        margin: 20px;
+        padding: 40px;
+
+        background: radial-gradient(circle, rgba(39, 180, 159, 0.7247899159663865) 0%, rgba(210, 183, 241, 0.8396358543417367) 90%);
+        box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        margin-bottom: 40px;
+    }
+
+    .balance-container {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+    }
+
+    .balance-tile {
+        width: 250px;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        color: white;
+        margin: 10px;
+    }
+
+
+    .bank {
+        background-color: rgba(0, 123, 255, 0.9);
+        box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+        border: 2px solid rgba(0, 123, 255, 1);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .mfs {
+        background-color: #28a745;
+        box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
+        border: 2px solid #218838;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .wallet {
+        background-color: #6f42c1;
+        box-shadow: 0 4px 10px rgba(111, 66, 193, 0.3);
+        border: 2px solid #5a32a3;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    /* Floating effect on hover */
+    .bank:hover,
+    .mfs:hover,
+    .wallet:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .view-all-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 30px;
+    }
+
+    .view-all-button {
+        display: inline-block;
+        background-color: #495057;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .view-all-button:hover {
+        background-color: #343a40;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .transaction-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 2px solid black;
+        border-radius: 10px;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    form {
+        margin-bottom: 30px;
+    }
+
+    select,
+    input[type="number"],
+    input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        margin: 5px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    button {
+        background-color: #007bff;
+        color: black;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background-color: #0056b3;
+    }
+
+    .transaction-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+
+    }
+
+    .tab-button {
+        flex: 1;
+        margin: 0 5px;
+        padding: 10px;
+        background-color: #f8f9fa00;
+        border: 1px solid black;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .tab-button:hover {
+        background-color: #e9ecef;
+    }
+
+    .tab-button.active {
+        background-color: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+
+    .transaction-form {
+        background-color: rgba(255, 255, 255, 0);
+        padding: 20px;
+        border-radius: 4px;
+
+    }
+
+    input,
+    select,
+    textarea {
+        width: 100%;
+        padding: 8px;
+        margin: 5px 0;
+        background-color: transparent;
+        border: 1px solid black;
+        border-radius: 4px;
+    }
+
+    input[type="date"],
+    input[type="number"],
+    input[type="text"] {
+        background-color: transparent;
+        border: 1px solid black;
+    }
+
+    .form-container h1,
+    h2 {
+        text-align: center;
+    }
+
+    select {
+        background-color: transparent !important;
+        color: black !important;
+        border: 1px solid black !important;
+        appearance: auto;
+        /* Keep the dropdown arrow visible */
+    }
+
+    /* Style for Select2 elements */
+    .select2-container--default .select2-selection--single {
+        background-color: transparent !important;
+        border: 1px solid black !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        background-color: transparent !important;
+        color: black !important;
+    }
+
+    /* Style for dropdown menu */
+    .select2-dropdown {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        color: black;
+        border: 1px solid black !important;
+    }
+
+    /* Style for dropdown items */
+
+
+    /* Style for dropdown items on hover */
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: rgba(0, 123, 255, 0.7) !important;
+        color: white !important;
+    }
+
+    /* Style for selected dropdown item */
+    .select2-container--default .select2-results__option[aria-selected=true] {
+        background-color: rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+        position: relative;
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 0;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 600px;
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        animation: modalopen 0.4s;
+    }
+
+    @keyframes modalopen {
+        from {
+            opacity: 0;
+            transform: translateY(-60px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .modal-header {
+        padding: 15px;
+        background-color: #007bff;
+        color: white;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .close-modal {
+        color: white;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .cancel-button {
+        background-color: #6c757d;
+    }
+
+    .submit-button {
+        background-color: #28a745;
+    }
+
+    .loan {
+        background-color: #dc3545;
+        box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
+        border: 2px solid #c82333;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .loan:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .loan-due-badge {
+        display: inline-block;
+        background-color: #fff;
+        color: #dc3545;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: bold;
+        margin-top: 5px;
+    }
+</style>
+<script type="application/json" id="bank-account-data">
+    {
+        {% for bank_name in bank_accounts|map(attribute='bank_name')|unique %}
+        "{{ bank_name }}": [
+            {% for bank in bank_accounts if bank.bank_name == bank_name %}
+            {% if not loop.first %},{% endif %}
+            {
+                "number": "{{ bank.account_number }}",
+                "display": "{{ bank.account_number }}",
+                "balance": {{ bank.balance }}
+            }
+            {% endfor %}
+        ]{% if not loop.last %},{% endif %}
+        {% endfor %}
+    }
+    </script>
+    
+    <script type="application/json" id="mfs-account-data">
+    {
+        {% for mfs_name in mfs_accounts|map(attribute='mfs_name')|unique %}
+        "{{ mfs_name }}": [
+            {% for mfs in mfs_accounts if mfs.mfs_name == mfs_name %}
+            {% if not loop.first %},{% endif %}
+            {
+                "number": "{{ mfs.account_no }}",
+                "display": "{{ mfs.account_no }}",
+                "balance": {{ mfs.balance }}
+            }
+            {% endfor %}
+        ]{% if not loop.last %},{% endif %}
+        {% endfor %}
+    }
+    </script>
+    
+    <script>
+        // Initialize global account data object once
+        window.ACCOUNT_DATA = {
+            bankAccounts: {},
+            mfsAccounts: {}
+        };
+    
+        // Function to toggle account fields based on selection
+        function toggleFields(accountTypeId, bankFieldsId, mfsFieldsId) {
+            const accountType = document.getElementById(accountTypeId).value;
+            const bankFields = document.getElementById(bankFieldsId);
+            const mfsFields = document.getElementById(mfsFieldsId);
+    
+            if (accountType === 'bank') {
+                bankFields.classList.remove('hidden');
+                mfsFields.classList.add('hidden');
+            } else if (accountType === 'mfs') {
+                bankFields.classList.add('hidden');
+                mfsFields.classList.remove('hidden');
+            } else {
+                bankFields.classList.add('hidden');
+                mfsFields.classList.add('hidden');
+            }
+        }
+    
+        // Function to switch between transaction forms
+        function showForm(formType) {
+            // Hide all forms
+            document.querySelectorAll('.transaction-form').forEach(form => {
+                form.classList.add('hidden');
+            });
+    
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+    
+            // Show selected form and activate button
+            document.getElementById(`${formType}-form`).classList.remove('hidden');
+            document.querySelector(`button[onclick="showForm('${formType}')"]`).classList.add('active');
+        }
+    
+        // Function to show loan modal for any expense
+        function showLoanModal(accountType, amount, category, date, description, insufficientFunds = false, accountBalance = 0) {
+            // Populate the loan modal with expense details
+            document.getElementById('loan_expense_account_type').value = accountType;
+            document.getElementById('loan_expense_amount').value = amount;
+            document.getElementById('loan_expense_category').value = category;
+            document.getElementById('loan_expense_date').value = date;
+            document.getElementById('loan_expense_description').value = description || '';
+    
+            // Set account-specific details
+            if (accountType === 'bank') {
+                document.getElementById('loan_bank_name').value = document.querySelector('select[name="bank_name"]').value;
+                document.getElementById('loan_bank_acc_no').value = document.querySelector('select[name="bank_acc_no"]').value;
+            } else if (accountType === 'mfs') {
+                document.getElementById('loan_mfs_name').value = document.querySelector('select[name="mfs_name"]').value;
+                document.getElementById('loan_mfs_acc_no').value = document.querySelector('select[name="mfs_acc_no"]').value;
+            }
+    
+            // Calculate the minimum loan amount needed
+            let minimumLoanAmount;
+            if (insufficientFunds && accountBalance > 0) {
+                // If user has partial balance, they only need to borrow the difference
+                minimumLoanAmount = Math.max(amount - accountBalance, 0);
+                console.log(`Calculating minimum loan: ${amount} - ${accountBalance} = ${minimumLoanAmount}`);
+            } else {
+                // For direct loan option or zero balance, use the full amount
+                minimumLoanAmount = amount;
+                console.log(`Using full amount as minimum loan: ${minimumLoanAmount}`);
+            }
+    
+            // Set minimum loan amount to the calculated minimum
+            document.getElementById('loan_amount').min = minimumLoanAmount.toFixed(2);
+            document.getElementById('loan_amount').value = minimumLoanAmount.toFixed(2);
+    
+            // Default return date to 30 days from now
+            const returnDate = new Date();
+            returnDate.setDate(returnDate.getDate() + 30);
+            document.getElementById('return_date').value = returnDate.toISOString().split('T')[0];
+    
+            // Update modal title/text based on whether this is for insufficient funds
+            if (insufficientFunds) {
+                document.querySelector('#loanModal .modal-header h3').textContent = 'Insufficient Funds';
+                document.querySelector('#loanModal .modal-body p:first-child').textContent = 
+                    'You don\'t have enough balance in the selected account.';
+                document.querySelector('#loanModal .modal-body p:nth-child(2)').textContent = 
+                    `You need to borrow at least ${minimumLoanAmount.toFixed(2)}/= to complete this expense.`;
+            } else {
+                document.querySelector('#loanModal .modal-header h3').textContent = 'Record Expense as Loan';
+                document.querySelector('#loanModal .modal-body p:first-child').textContent = 
+                    'You are recording this expense as a loan.';
+                document.querySelector('#loanModal .modal-body p:nth-child(2)').textContent = 
+                    'Please enter the loan details below:';
+            }
+    
+            // Add a notice about extra loan amount
+            const loanAmountInput = document.getElementById('loan_amount');
+            const extraAmountInfo = document.createElement('div');
+            extraAmountInfo.id = 'extra-amount-info';
+            extraAmountInfo.style.marginTop = '5px';
+            extraAmountInfo.style.fontSize = '0.9em';
+            extraAmountInfo.style.color = '#28a745';
+            extraAmountInfo.textContent = 'Any amount above the required loan will be added to your account balance.';
+            
+            // Insert the notice after the loan amount input
+            if (!document.getElementById('extra-amount-info')) {
+                loanAmountInput.parentNode.appendChild(extraAmountInfo);
+            }
+            
+            // Add event listener to update extra amount message as user changes loan amount
+            loanAmountInput.addEventListener('input', function() {
+                const expenseAmount = parseFloat(document.getElementById('loan_expense_amount').value);
+                const loanAmount = parseFloat(this.value);
+                const extraAmount = Math.max(loanAmount - minimumLoanAmount, 0);
+                
+                if (extraAmount > 0) {
+                    extraAmountInfo.textContent = `${extraAmount.toFixed(2)}/= will be added to your account balance.`;
+                    extraAmountInfo.style.color = '#28a745';
+                    extraAmountInfo.style.fontWeight = 'bold';
+                } else {
+                    extraAmountInfo.textContent = 'Any amount above the required loan will be added to your account balance.';
+                    extraAmountInfo.style.fontWeight = 'normal';
+                    extraAmountInfo.style.color = '#6c757d';
+                }
+            });
+    
+            // Display the modal
+            document.getElementById('loanModal').style.display = 'block';
+        }
+    
+        // Universal function to update account numbers for both bank and MFS
+        function updateAccountNumbers(selectElement, accountType) {
+            const name = selectElement.value;
+            if (!name) {
+                console.warn(`No ${accountType} name selected`);
+                return;
+            }
+            
+            console.log(`Updating ${accountType} accounts for: ${name}`);
+            
+            // Get the form containing this select
+            const form = selectElement.closest('form') || selectElement.closest('.modal-content');
+            if (!form) {
+                console.error('Could not find parent form for', selectElement);
+                return;
+            }
+            
+            // Find the corresponding account number select
+            let accNoSelect;
+            const selectName = selectElement.name;
+            
+            // Determine which account number field to update
+            if (accountType === 'bank') {
+                if (selectName === 'bank_name') {
+                    accNoSelect = form.querySelector('select[name="bank_acc_no"]');
+                } else if (selectName === 'sender_bank_name') {
+                    accNoSelect = form.querySelector('select[name="sender_bank_acc_no"]');
+                } else if (selectName === 'receiver_bank_name') {
+                    accNoSelect = form.querySelector('select[name="receiver_bank_acc_no"]');
+                }
+            } else if (accountType === 'mfs') {
+                if (selectName === 'mfs_name') {
+                    accNoSelect = form.querySelector('select[name="mfs_acc_no"]');
+                } else if (selectName === 'sender_mfs_name') {
+                    accNoSelect = form.querySelector('select[name="sender_mfs_acc_no"]');
+                } else if (selectName === 'receiver_mfs_name') {
+                    accNoSelect = form.querySelector('select[name="receiver_mfs_acc_no"]');
+                }
+            }
+            
+            if (!accNoSelect) {
+                console.error(`Could not find account number select for ${accountType} in form:`, form);
+                return;
+            }
+            
+            console.log(`Found account number select:`, accNoSelect.name || accNoSelect.id);
+            
+            // Clear existing options
+            while (accNoSelect.options.length > 0) {
+                accNoSelect.remove(0);
+            }
+            
+            // Add new options based on selected account
+            const accountData = accountType === 'bank' 
+                ? window.ACCOUNT_DATA.bankAccounts[name] 
+                : window.ACCOUNT_DATA.mfsAccounts[name];
+                    
+            if (accountData && accountData.length > 0) {
+                accountData.forEach(acc => {
+                    const option = document.createElement('option');
+                    option.value = acc.number;
+                    option.textContent = acc.display || acc.number;
+                    accNoSelect.appendChild(option);
+                });
+                console.log(`Added ${accountData.length} account options for ${name}`);
+            } else {
+                console.warn(`No accounts found for ${accountType}: ${name}`);
+            }
+            
+            // Re-initialize Select2 if it exists
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                try {
+                    $(accNoSelect).select2('destroy').select2({
+                        width: '100%',
+                        dropdownCssClass: 'select2-dropdown'
+                    });
+                } catch (e) {
+                    console.warn('Error reinitializing Select2:', e);
+                }
+            }
+        }
+    
+        // Enhanced insufficient funds message for transfers
+        function showInsufficientFundsMessage(accountType, amount, accountBalance) {
+            // Format numbers for better display
+            const formattedAmount = amount.toFixed(2);
+            const formattedBalance = accountBalance.toFixed(2);
+            const missing = (amount - accountBalance).toFixed(2);
+            
+            // Create a detailed message
+            let message = `Insufficient funds for this transfer.\n\n`;
+            message += `Required Amount: ${formattedAmount}/=\n`;
+            message += `Available Balance: ${formattedBalance}/=\n`;
+            message += `Shortage: ${missing}/=\n\n`;
+            message += `Please add funds to your account before trying again.`;
+            
+            alert(message);
+        }
+    
+        // Main initialization when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('DOM loaded, initializing app...');
+            
+            // Parse JSON data from hidden elements
+            try {
+                const bankAccountJson = document.getElementById('bank-account-data').textContent.trim();
+                const mfsAccountJson = document.getElementById('mfs-account-data').textContent.trim();
+    
+                window.ACCOUNT_DATA.bankAccounts = JSON.parse(bankAccountJson);
+                window.ACCOUNT_DATA.mfsAccounts = JSON.parse(mfsAccountJson);
+                
+                console.log('Bank accounts loaded:', Object.keys(window.ACCOUNT_DATA.bankAccounts).length);
+                console.log('MFS accounts loaded:', Object.keys(window.ACCOUNT_DATA.mfsAccounts).length);
+                
+                // Debug: Log the accounts for each bank/MFS
+                Object.keys(window.ACCOUNT_DATA.bankAccounts).forEach(bank => {
+                    console.log(`Bank ${bank} has accounts:`, window.ACCOUNT_DATA.bankAccounts[bank].map(acc => acc.number));
+                });
+                
+                Object.keys(window.ACCOUNT_DATA.mfsAccounts).forEach(mfs => {
+                    console.log(`MFS ${mfs} has accounts:`, window.ACCOUNT_DATA.mfsAccounts[mfs].map(acc => acc.number));
+                });
+            } catch (e) {
+                console.error("Error parsing account data:", e);
+                console.error("Bank data:", document.getElementById('bank-account-data').textContent);
+                console.error("MFS data:", document.getElementById('mfs-account-data').textContent);
+            }
+    
+            // Show expense form by default when page loads
+            showForm('expense');
+    
+            // Set up loan modal functionality
+            const loanModal = document.getElementById('loanModal');
+            const loanModalClose = document.getElementById('loanModalClose');
+            const cancelLoanButton = document.getElementById('cancelLoanButton');
+    
+            // Add event listeners to close the loan modal
+            if (loanModalClose) {
+                loanModalClose.addEventListener('click', function () {
+                    loanModal.style.display = 'none';
+                });
+            }
+    
+            if (cancelLoanButton) {
+                cancelLoanButton.addEventListener('click', function () {
+                    loanModal.style.display = 'none';
+                });
+            }
+    
+            // Close modals when clicking outside
+            window.addEventListener('click', function (e) {
+                if (e.target === loanModal) {
+                    loanModal.style.display = 'none';
+                }
+            });
+    
+            // Add validation for loan amount form
+            const loanForm = document.getElementById('loanForm');
+            if (loanForm) {
+                loanForm.addEventListener('submit', function(e) {
+                    const expenseAmount = parseFloat(document.getElementById('loan_expense_amount').value);
+                    const loanAmount = parseFloat(document.getElementById('loan_amount').value);
+                    const minimumRequired = parseFloat(document.getElementById('loan_amount').min);
+                    
+                    if (loanAmount < minimumRequired) {
+                        e.preventDefault();
+                        alert(`The loan amount must be at least ${minimumRequired.toFixed(2)}/=.`);
+                        return false;
+                    }
+                    
+                    // If loan amount is greater than minimum required, show confirmation with breakdown
+                    if (loanAmount > minimumRequired) {
+                        const extraAmount = (loanAmount - minimumRequired).toFixed(2);
+                        let confirmMessage = `Loan breakdown:\n\n`;
+                        
+                        if (minimumRequired === expenseAmount) {
+                            // Full expense amount borrowed
+                            confirmMessage += `- ${minimumRequired.toFixed(2)}/= for the expense\n`;
+                        } else {
+                            // Partial expense amount borrowed (user had some balance)
+                            confirmMessage += `- ${minimumRequired.toFixed(2)}/= to cover the remaining expense\n`;
+                        }
+                        
+                        // Extra amount that will be added to balance
+                        confirmMessage += `- ${extraAmount}/= will be added to your account balance\n\n`;
+                        confirmMessage += `Total loan: ${loanAmount.toFixed(2)}/=\n\n`;
+                        confirmMessage += `Do you want to proceed?`;
+                        
+                        if (!confirm(confirmMessage)) {
+                            e.preventDefault();
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                });
+            }
+    
+            // Initialize account selects
+            // Bank account selects
+            document.querySelectorAll('select[name*="bank_name"]').forEach(select => {
+                console.log('Initializing bank select:', select.name);
+                
+                // Add change event listener
+                select.addEventListener('change', function() {
+                    updateAccountNumbers(this, 'bank');
+                });
+                
+                // Initialize on page load if there's a selected value
+                if (select.value) {
+                    updateAccountNumbers(select, 'bank');
+                }
+            });
+            
+            // MFS account selects
+            document.querySelectorAll('select[name*="mfs_name"]').forEach(select => {
+                console.log('Initializing MFS select:', select.name);
+                
+                // Add change event listener
+                select.addEventListener('change', function() {
+                    updateAccountNumbers(this, 'mfs');
+                });
+                
+                // Initialize on page load if there's a selected value
+                if (select.value) {
+                    updateAccountNumbers(select, 'mfs');
+                }
+            });
+    
+            // Handle expense form submission and insufficient funds check
+            const expenseForm = document.querySelector('#expense-form form');
+            if (expenseForm) {
+                // Add the "Record as Loan" checkbox to the expense form
+                const submitButton = expenseForm.querySelector('button[type="submit"]');
+                const loanButtonWrapper = document.createElement('div');
+                loanButtonWrapper.style.marginBottom = '20px';
+                loanButtonWrapper.style.display = 'flex';
+                loanButtonWrapper.style.justifyContent = 'space-between';
+                loanButtonWrapper.style.alignItems = 'center';
+                
+                // Create a normal submit button
+                const normalSubmitButton = document.createElement('button');
+                normalSubmitButton.type = 'button';
+                normalSubmitButton.textContent = 'Submit Expense';
+                normalSubmitButton.className = 'submit-button';
+                normalSubmitButton.style.backgroundColor = '#007bff';
+                
+                // Create a loan button
+                const loanButton = document.createElement('button');
+                loanButton.type = 'button';
+                loanButton.textContent = 'Record as Loan';
+                loanButton.className = 'loan-button';
+                loanButton.style.backgroundColor = '#dc3545';
+                
+                // Replace the original submit button with these two options
+                loanButtonWrapper.appendChild(normalSubmitButton);
+                loanButtonWrapper.appendChild(loanButton);
+                submitButton.parentNode.replaceChild(loanButtonWrapper, submitButton);
+                
+                // Add event listener for normal submission
+                normalSubmitButton.addEventListener('click', function() {
+                    handleExpenseSubmission(false);
+                });
+                
+                // Add event listener for loan submission
+                loanButton.addEventListener('click', function() {
+                    handleExpenseSubmission(true);
+                });
+                
+                // Function to handle expense submission
+                function handleExpenseSubmission(asLoan) {
+                    const accountType = document.getElementById('expense_account_type').value;
+                    const amount = parseFloat(document.getElementById('expense_amount').value);
+                    const category = document.getElementById('expense_category').value;
+                    const date = document.getElementById('expense_date').value;
+                    const description = document.getElementById('expense_description') ? document.getElementById('expense_description').value : '';
+                    
+                    // If recording as loan, show loan modal regardless of balance
+                    if (asLoan) {
+                        showLoanModal(accountType, amount, category, date, description, false);
+                        return;
+                    }
+                    
+                    // Otherwise, check for sufficient balance
+                    let hasEnoughBalance = true;
+                    let accountBalance = 0;
+    
+                    if (accountType === 'wallet') {
+                        accountBalance = parseFloat('{{ wallet_balance }}');
+                        hasEnoughBalance = accountBalance >= amount;
+                    } else if (accountType === 'bank') {
+                        const bankName = document.querySelector('select[name="bank_name"]').value;
+                        const bankAccNo = document.querySelector('select[name="bank_acc_no"]').value;
+    
+                        // Find the bank account's balance from our data object
+                        if (window.ACCOUNT_DATA.bankAccounts[bankName]) {
+                            const account = window.ACCOUNT_DATA.bankAccounts[bankName].find(acc => acc.number === bankAccNo);
+                            if (account) {
+                                accountBalance = parseFloat(account.balance);
+                                hasEnoughBalance = accountBalance >= amount;
+                            }
+                        }
+                    } else if (accountType === 'mfs') {
+                        const mfsName = document.querySelector('select[name="mfs_name"]').value;
+                        const mfsAccNo = document.querySelector('select[name="mfs_acc_no"]').value;
+    
+                        // Find the MFS account's balance from our data object
+                        if (window.ACCOUNT_DATA.mfsAccounts[mfsName]) {
+                            const account = window.ACCOUNT_DATA.mfsAccounts[mfsName].find(acc => acc.number === mfsAccNo);
+                            if (account) {
+                                accountBalance = parseFloat(account.balance);
+                                hasEnoughBalance = accountBalance >= amount;
+                            }
+                        }
+                    }
+    
+                    console.log(`Expense - Account type: ${accountType}, Amount: ${amount}, Balance: ${accountBalance}, Sufficient: ${hasEnoughBalance}`);
+    
+                    if (hasEnoughBalance) {
+                        // If there's enough balance, submit the form normally
+                        expenseForm.submit();
+                    } else {
+                        // First show an insufficient balance alert with option to proceed
+                        const formattedAmount = amount.toFixed(2);
+                        const formattedBalance = accountBalance.toFixed(2);
+                        const missing = (amount - accountBalance).toFixed(2);
+                        
+                        // Create a detailed message about insufficient funds
+                        const message = `Insufficient funds for this expense.\n\n` +
+                            `Required Amount: ${formattedAmount}/=\n` +
+                            `Available Balance: ${formattedBalance}/=\n` +
+                            `Shortage: ${missing}/=\n\n` +
+                            `Would you like to record this as a loan?`;
+                        
+                        if (confirm(message)) {
+                            // If user confirms, show the loan modal with the insufficient funds context
+                            // Pass the account balance so we can calculate the minimum loan needed
+                            showLoanModal(accountType, amount, category, date, description, true, accountBalance);
+                        }
+                        // If user cancels, do nothing (stay on form)
+                    }
+                }
+            }
+    
+            // Handle transfer form submission and check for insufficient funds
+            const transferForm = document.querySelector('#transfer-form form');
+            if (transferForm) {
+                transferForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+    
+                    const senderAccountType = document.getElementById('sender_account_type').value;
+                    const amount = parseFloat(document.getElementById('transfer_amount').value);
+    
+                    // Check if the sender has sufficient balance
+                    let hasEnoughBalance = true;
+                    let accountBalance = 0;
+    
+                    if (senderAccountType === 'wallet') {
+                        accountBalance = parseFloat('{{ wallet_balance }}');
+                        hasEnoughBalance = accountBalance >= amount;
+                    } else if (senderAccountType === 'bank') {
+                        const bankName = document.querySelector('select[name="sender_bank_name"]').value;
+                        const bankAccNo = document.querySelector('select[name="sender_bank_acc_no"]').value;
+    
+                        // Find the bank account's balance from our data object
+                        if (window.ACCOUNT_DATA.bankAccounts[bankName]) {
+                            const account = window.ACCOUNT_DATA.bankAccounts[bankName].find(acc => acc.number === bankAccNo);
+                            if (account) {
+                                accountBalance = parseFloat(account.balance);
+                                hasEnoughBalance = accountBalance >= amount;
+                            }
+                        }
+                    } else if (senderAccountType === 'mfs') {
+                        const mfsName = document.querySelector('select[name="sender_mfs_name"]').value;
+                        const mfsAccNo = document.querySelector('select[name="sender_mfs_acc_no"]').value;
+    
+                        // Find the MFS account's balance from our data object
+                        if (window.ACCOUNT_DATA.mfsAccounts[mfsName]) {
+                            const account = window.ACCOUNT_DATA.mfsAccounts[mfsName].find(acc => acc.number === mfsAccNo);
+                            if (account) {
+                                accountBalance = parseFloat(account.balance);
+                                hasEnoughBalance = accountBalance >= amount;
+                            }
+                        }
+                    }
+    
+                    console.log(`Transfer - Account type: ${senderAccountType}, Amount: ${amount}, Balance: ${accountBalance}, Sufficient: ${hasEnoughBalance}`);
+    
+                    if (hasEnoughBalance) {
+                        // If there's enough balance, submit the form normally
+                        this.submit();
+                    } else {
+                        // For transfers, show an enhanced error message
+                        showInsufficientFundsMessage(senderAccountType, amount, accountBalance);
+                    }
+                });
+            }
+    
+            // Initialize Select2 for better dropdown UX if jQuery is available
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                // Initialize Select2 on all selects 
+                $('select').select2({
+                    width: '100%',
+                    dropdownCssClass: 'select2-dropdown'
+                });
+                
+                // Add special event handlers for Select2 changes
+                $('select[name*="bank_name"]').on('select2:select', function() {
+                    updateAccountNumbers(this, 'bank');
+                });
+                
+                $('select[name*="mfs_name"]').on('select2:select', function() {
+                    updateAccountNumbers(this, 'mfs');
+                });
+            }
+        });
+    </script>
+{% endblock %}

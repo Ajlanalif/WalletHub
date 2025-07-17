@@ -1,0 +1,967 @@
+{% extends "base.html" %}
+{% block title %}Loans{% endblock %}
+{% block link %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{% endblock %}
+{% block content %}
+
+<div class="master">
+    <div class="container">
+        <h1>Loans</h1>
+        
+        <div class="summary-cards">
+            <div class="summary-card total-loans">
+                <h3>Total Active Loans</h3>
+                <p class="amount">{{ total_loans }}/=</p>
+            </div>
+            <div class="summary-card due-soon">
+                <h3>Due Within 7 Days</h3>
+                <p class="amount">{{ due_soon }}/=</p>
+            </div>
+            <div class="summary-card overdue">
+                <h3>Overdue Loans</h3>
+                <p class="amount">{{ overdue }}/=</p>
+            </div>
+        </div>
+        
+        <div class="loan-actions">
+            <button id="openNewLoanBtn" class="action-button">+ New Loan</button>
+        </div>
+        
+        <h2>Active Loans</h2>
+        {% if active_loans %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Lender</th>
+                        <th>Amount</th>
+                        <th>Remaining</th>
+                        <th>Date Taken</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for loan in active_loans %}
+                    <tr>
+                        <td>{{ loan.lender_name }}</td>
+                        <td>{{ loan.amount }}/=</td>
+                        <td>{{ loan.remaining_amount }}/=</td>
+                        <td>{{ loan.date_taken.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ loan.return_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            {% if loan.is_repaid %}
+                            <span class="status repaid">Repaid</span>
+                            {% elif loan.return_date < today %}
+                            <span class="status overdue">Overdue</span>
+                            {% elif (loan.return_date - today).days <= 7 %}
+                            <span class="status due-soon">Due Soon</span>
+                            {% else %}
+                            <span class="status active">Active</span>
+                            {% endif %}
+                        </td>
+                        <td class="actions">
+                            <button class="repay-button" data-loan-id="{{ loan.id }}" data-remaining="{{ loan.remaining_amount }}">Repay</button>
+                            <button class="view-button" data-loan-id="{{ loan.id }}">Details</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No active loans.</p>
+        {% endif %}
+        
+        {% if repaid_loans %}
+        <h2>Repaid Loans</h2>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Lender</th>
+                        <th>Amount</th>
+                        <th>Date Taken</th>
+                        <th>Date Repaid</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for loan in repaid_loans %}
+                    <tr>
+                        <td>{{ loan.lender_name }}</td>
+                        <td>{{ loan.amount }}/=</td>
+                        <td>{{ loan.date_taken.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            {% if loan.repayments %}
+                            {{ loan.repayments[-1].date.strftime('%Y-%m-%d') }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="actions">
+                            <button class="view-button" data-loan-id="{{ loan.id }}">Details</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Repay Loan Modal -->
+    <div id="repayModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Repay Loan</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('repay_loan') }}">
+                    <input type="hidden" name="loan_id" id="repay_loan_id">
+                    
+                    <div class="form-group">
+                        <label for="repay_amount">Amount to Repay:</label>
+                        <input type="number" id="repay_amount" name="amount" step="0.01" required>
+                        <small>Remaining: <span id="remaining_amount"></span>/=</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="account_type">Payment Source:</label>
+                        <select id="repay_account_type" name="account_type" onchange="toggleRepayFields()" required>
+                            <option value="">Select Account Type</option>
+                            <option value="wallet">Cash</option>
+                            <option value="bank">Bank</option>
+                            <option value="mfs">MFS</option>
+                        </select>
+                    </div>
+                    
+                    <div id="repay_bank_fields" class="form-group hidden">
+                        <label for="repay_bank_name">Bank Name:</label>
+                        <select id="repay_bank_name" name="bank_name">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.bank_name }}">{{ bank.bank_name }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                        <label for="repay_bank_acc_no">Account Number:</label>
+                        <select id="repay_bank_acc_no" name="bank_acc_no">
+                            <!-- Will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    
+                    <div id="repay_mfs_fields" class="form-group hidden">
+                        <label for="repay_mfs_name">MFS Provider:</label>
+                        <select id="repay_mfs_name" name="mfs_name">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.mfs_name }}">{{ mfs.mfs_name }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                        <label for="repay_mfs_acc_no">Account Number:</label>
+                        <select id="repay_mfs_acc_no" name="mfs_acc_no">
+                            <!-- Will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="repay_notes">Notes:</label>
+                        <textarea id="repay_notes" name="notes"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="cancel-button">Cancel</button>
+                        <button type="submit" class="submit-button">Repay</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- New Loan Modal -->
+    <div id="newLoanModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>New Loan</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('add_loan_without_expense') }}">
+                    <div class="form-group">
+                        <label for="new_lender_name">Lender Name:</label>
+                        <input type="text" id="new_lender_name" name="lender_name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_loan_amount">Loan Amount:</label>
+                        <input type="number" id="new_loan_amount" name="loan_amount" step="0.01" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_account_type">Add to Account:</label>
+                        <select id="new_account_type" name="account_type" onchange="toggleNewLoanFields()" required>
+                            <option value="">Select Account Type</option>
+                            <option value="wallet">Cash</option>
+                            <option value="bank">Bank</option>
+                            <option value="mfs">MFS</option>
+                        </select>
+                    </div>
+                    
+                    <div id="new_bank_fields" class="form-group hidden">
+                        <label for="new_bank_name">Bank Name:</label>
+                        <select id="new_bank_name" name="bank_name">
+                            {% for bank in bank_accounts %}
+                            <option value="{{ bank.bank_name }}">{{ bank.bank_name }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                        <label for="new_bank_acc_no">Account Number:</label>
+                        <select id="new_bank_acc_no" name="bank_acc_no">
+                            <!-- Will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    
+                    <div id="new_mfs_fields" class="form-group hidden">
+                        <label for="new_mfs_name">MFS Provider:</label>
+                        <select id="new_mfs_name" name="mfs_name">
+                            {% for mfs in mfs_accounts %}
+                            <option value="{{ mfs.mfs_name }}">{{ mfs.mfs_name }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                        <label for="new_mfs_acc_no">Account Number:</label>
+                        <select id="new_mfs_acc_no" name="mfs_acc_no">
+                            <!-- Will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_loan_date">Date Taken:</label>
+                        <input type="date" id="new_loan_date" name="loan_date" value="{{ today.strftime('%Y-%m-%d') }}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_return_date">Return Date:</label>
+                        <input type="date" id="new_return_date" name="return_date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_loan_notes">Notes:</label>
+                        <textarea id="new_loan_notes" name="loan_notes"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="cancel-button">Cancel</button>
+                        <button type="submit" class="submit-button">Add Loan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loan Details Modal -->
+    <div id="loanDetailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Loan Details</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body" id="loanDetailsContent">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .master {
+        margin: 20px;
+        padding: 40px;
+        background: radial-gradient(circle, rgba(39, 180, 159, 0.7247899159663865) 0%, rgba(210, 183, 241, 0.8396358543417367) 90%);
+        box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        margin-bottom: 40px;
+    }
+
+    .summary-cards {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+    }
+    
+    .summary-card {
+        flex: 1;
+        margin: 0 10px;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        color: white;
+    }
+    
+    .total-loans {
+        background-color: #dc3545;
+    }
+    
+    .due-soon {
+        background-color: #ffc107;
+    }
+    
+    .overdue {
+        background-color: #6c757d;
+    }
+    
+    .amount {
+        font-size: 24px;
+        font-weight: bold;
+    }
+    
+    .loan-actions {
+        margin-bottom: 20px;
+        text-align: right;
+    }
+    
+    .action-button {
+        padding: 10px 20px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    
+    .status {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .status.repaid {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .status.overdue {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .status.due-soon {
+        background-color: #ffc107;
+        color: black;
+    }
+    
+    .status.active {
+        background-color: #17a2b8;
+        color: white;
+    }
+    
+    .actions button {
+        padding: 5px 10px;
+        margin: 0 5px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    
+    .repay-button {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .view-button {
+        background-color: #17a2b8;
+        color: white;
+    }
+
+    /* Table styles consistent with dashboard */
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        background-color: rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .table th, .table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .table thead th {
+        background-color: rgba(0, 123, 255, 0.1);
+        font-weight: bold;
+        color: #333;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* Modal styles matching dashboard */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+        position: relative;
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 0;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 600px;
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        animation: modalopen 0.4s;
+    }
+
+    @keyframes modalopen {
+        from {
+            opacity: 0;
+            transform: translateY(-60px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .modal-header {
+        padding: 15px;
+        background-color: #007bff;
+        color: white;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .close-modal {
+        color: white;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .cancel-button {
+        background-color: #6c757d;
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .submit-button {
+        background-color: #28a745;
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .hidden {
+        display: none;
+    }
+</style>
+<script type="application/json" id="bank-account-data">
+    {
+        {% for bank_name in bank_accounts|map(attribute='bank_name')|unique %}
+        "{{ bank_name }}": [
+            {% for bank in bank_accounts if bank.bank_name == bank_name %}
+            {% if not loop.first %},{% endif %}
+            {
+                "number": "{{ bank.account_number }}",
+                "display": "{{ bank.account_number }}",
+                "balance": {{ bank.balance }}
+            }
+            {% endfor %}
+        ]{% if not loop.last %},{% endif %}
+        {% endfor %}
+    }
+    </script>
+    
+    <script type="application/json" id="mfs-account-data">
+    {
+        {% for mfs_name in mfs_accounts|map(attribute='mfs_name')|unique %}
+        "{{ mfs_name }}": [
+            {% for mfs in mfs_accounts if mfs.mfs_name == mfs_name %}
+            {% if not loop.first %},{% endif %}
+            {
+                "number": "{{ mfs.account_no }}",
+                "display": "{{ mfs.account_no }}",
+                "balance": {{ mfs.balance }}
+            }
+            {% endfor %}
+        ]{% if not loop.last %},{% endif %}
+        {% endfor %}
+    }
+    </script>
+    
+    <script>
+        // Define account data object
+        window.ACCOUNT_DATA = {
+            bankAccounts: {},
+            mfsAccounts: {}
+        };
+    
+        // Functions to toggle form fields
+        function toggleNewLoanFields() {
+            const accountType = document.getElementById('new_account_type').value;
+            const bankFields = document.getElementById('new_bank_fields');
+            const mfsFields = document.getElementById('new_mfs_fields');
+            
+            if (accountType === 'bank') {
+                bankFields.classList.remove('hidden');
+                mfsFields.classList.add('hidden');
+            } else if (accountType === 'mfs') {
+                bankFields.classList.add('hidden');
+                mfsFields.classList.remove('hidden');
+            } else {
+                bankFields.classList.add('hidden');
+                mfsFields.classList.add('hidden');
+            }
+        }
+        
+        function toggleRepayFields() {
+            const accountType = document.getElementById('repay_account_type').value;
+            const bankFields = document.getElementById('repay_bank_fields');
+            const mfsFields = document.getElementById('repay_mfs_fields');
+            
+            if (accountType === 'bank') {
+                bankFields.classList.remove('hidden');
+                mfsFields.classList.add('hidden');
+            } else if (accountType === 'mfs') {
+                bankFields.classList.add('hidden');
+                mfsFields.classList.remove('hidden');
+            } else {
+                bankFields.classList.add('hidden');
+                mfsFields.classList.add('hidden');
+            }
+        }
+    
+        // Universal function to update account numbers for both bank and MFS
+        function updateAccountNumbers(selectElement, accountType) {
+            const name = selectElement.value;
+            if (!name) {
+                console.warn(`No ${accountType} name selected`);
+                return;
+            }
+            
+            console.log(`Updating ${accountType} accounts for: ${name}`);
+            
+            // Get the form containing this select
+            const form = selectElement.closest('form') || selectElement.closest('.modal-content');
+            if (!form) {
+                console.error('Could not find parent form for', selectElement);
+                return;
+            }
+            
+            // Find the corresponding account number select
+            let accNoSelect;
+            const selectId = selectElement.id;
+            
+            // Determine which account number field to update based on ID
+            if (accountType === 'bank') {
+                if (selectId === 'new_bank_name') {
+                    accNoSelect = document.getElementById('new_bank_acc_no');
+                } else if (selectId === 'repay_bank_name') {
+                    accNoSelect = document.getElementById('repay_bank_acc_no');
+                }
+            } else if (accountType === 'mfs') {
+                if (selectId === 'new_mfs_name') {
+                    accNoSelect = document.getElementById('new_mfs_acc_no');
+                } else if (selectId === 'repay_mfs_name') {
+                    accNoSelect = document.getElementById('repay_mfs_acc_no');
+                }
+            }
+            
+            if (!accNoSelect) {
+                console.error(`Could not find account number select for ${accountType} in form:`, form);
+                return;
+            }
+            
+            console.log(`Found account number select:`, accNoSelect.id);
+            
+            // Clear existing options
+            while (accNoSelect.options.length > 0) {
+                accNoSelect.remove(0);
+            }
+            
+            // Add new options based on selected account
+            const accountData = accountType === 'bank' 
+                ? window.ACCOUNT_DATA.bankAccounts[name] 
+                : window.ACCOUNT_DATA.mfsAccounts[name];
+                    
+            if (accountData && accountData.length > 0) {
+                accountData.forEach(acc => {
+                    const option = document.createElement('option');
+                    option.value = acc.number;
+                    option.textContent = acc.display || acc.number;
+                    accNoSelect.appendChild(option);
+                });
+                console.log(`Added ${accountData.length} account options for ${name}`);
+            } else {
+                console.warn(`No accounts found for ${accountType}: ${name}`);
+            }
+            
+            // Re-initialize Select2 if it exists
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                try {
+                    $(accNoSelect).select2('destroy').select2({
+                        width: '100%',
+                        dropdownCssClass: 'select2-dropdown'
+                    });
+                } catch (e) {
+                    console.warn('Error reinitializing Select2:', e);
+                }
+            }
+        }
+    
+        document.addEventListener('DOMContentLoaded', function() {
+            // Parse JSON data from hidden elements
+            try {
+                const bankAccountJson = document.getElementById('bank-account-data').textContent.trim();
+                const mfsAccountJson = document.getElementById('mfs-account-data').textContent.trim();
+    
+                window.ACCOUNT_DATA.bankAccounts = JSON.parse(bankAccountJson);
+                window.ACCOUNT_DATA.mfsAccounts = JSON.parse(mfsAccountJson);
+                
+                console.log('Bank accounts loaded:', Object.keys(window.ACCOUNT_DATA.bankAccounts).length);
+                console.log('MFS accounts loaded:', Object.keys(window.ACCOUNT_DATA.mfsAccounts).length);
+            } catch (e) {
+                console.error("Error parsing account data:", e);
+                console.error("Bank data:", document.getElementById('bank-account-data').textContent);
+                console.error("MFS data:", document.getElementById('mfs-account-data').textContent);
+            }
+            
+            // Add event listeners for account type changes
+            document.getElementById('new_account_type').addEventListener('change', toggleNewLoanFields);
+            document.getElementById('repay_account_type').addEventListener('change', toggleRepayFields);
+            
+            // Repay Loan Modal
+            const repayModal = document.getElementById('repayModal');
+            const repayButtons = document.querySelectorAll('.repay-button');
+            
+            repayButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const loanId = this.getAttribute('data-loan-id');
+                    const remaining = this.getAttribute('data-remaining');
+                    
+                    document.getElementById('repay_loan_id').value = loanId;
+                    document.getElementById('repay_amount').value = remaining;
+                    document.getElementById('repay_amount').max = remaining;
+                    document.getElementById('remaining_amount').textContent = remaining;
+                    
+                    repayModal.style.display = 'block';
+                });
+            });
+            
+            // New Loan Modal
+            const newLoanModal = document.getElementById('newLoanModal');
+            const openNewLoanBtn = document.getElementById('openNewLoanBtn');
+            
+            openNewLoanBtn.addEventListener('click', function() {
+                // Set default return date to 30 days from today
+                const returnDate = new Date();
+                returnDate.setDate(returnDate.getDate() + 30);
+                document.getElementById('new_return_date').value = returnDate.toISOString().split('T')[0];
+                
+                newLoanModal.style.display = 'block';
+            });
+            
+            // Loan Details Modal
+            const loanDetailsModal = document.getElementById('loanDetailsModal');
+            const viewButtons = document.querySelectorAll('.view-button');
+            
+            viewButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const loanId = this.getAttribute('data-loan-id');
+                    
+                    // Fetch loan details via AJAX
+                    fetch(`/loan_details/${loanId}`)
+                        .then(response => response.text())
+                        .then(html => {
+                            document.getElementById('loanDetailsContent').innerHTML = html;
+                            loanDetailsModal.style.display = 'block';
+                        })
+                        .catch(error => {
+                            console.error('Error fetching loan details:', error);
+                        });
+                });
+            });
+            
+            // Initialize bank selects with the dynamic account number updating
+            document.querySelectorAll('#new_bank_name, #repay_bank_name').forEach(select => {
+                console.log('Initializing bank select:', select.id);
+                
+                // Add change event listener
+                select.addEventListener('change', function() {
+                    updateAccountNumbers(this, 'bank');
+                });
+                
+                // Initialize on page load if there's a selected value
+                if (select.options.length > 0) {
+                    updateAccountNumbers(select, 'bank');
+                }
+            });
+            
+            // Initialize MFS selects with the dynamic account number updating
+            document.querySelectorAll('#new_mfs_name, #repay_mfs_name').forEach(select => {
+                console.log('Initializing MFS select:', select.id);
+                
+                // Add change event listener
+                select.addEventListener('change', function() {
+                    updateAccountNumbers(this, 'mfs');
+                });
+                
+                // Initialize on page load if there's a selected value
+                if (select.options.length > 0) {
+                    updateAccountNumbers(select, 'mfs');
+                }
+            });
+            
+            // Close modal buttons
+            document.querySelectorAll('.close-modal, .cancel-button').forEach(element => {
+                element.addEventListener('click', function() {
+                    repayModal.style.display = 'none';
+                    newLoanModal.style.display = 'none';
+                    loanDetailsModal.style.display = 'none';
+                });
+            });
+            
+            // Close modals when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === repayModal) {
+                    repayModal.style.display = 'none';
+                } else if (event.target === newLoanModal) {
+                    newLoanModal.style.display = 'none';
+                } else if (event.target === loanDetailsModal) {
+                    loanDetailsModal.style.display = 'none';
+                }
+            });
+            
+            // Additional validation for loan forms
+            const newLoanForm = document.querySelector('#newLoanModal form');
+            if (newLoanForm) {
+                newLoanForm.addEventListener('submit', function(e) {
+                    const loanAmount = parseFloat(document.getElementById('new_loan_amount').value);
+                    const returnDate = new Date(document.getElementById('new_return_date').value);
+                    const today = new Date();
+                    
+                    // Check if loan amount is valid
+                    if (isNaN(loanAmount) || loanAmount <= 0) {
+                        e.preventDefault();
+                        alert('Please enter a valid loan amount greater than zero.');
+                        return false;
+                    }
+                    
+                    // Check if return date is valid
+                    if (returnDate <= today) {
+                        e.preventDefault();
+                        alert('Return date must be in the future.');
+                        return false;
+                    }
+                    
+                    return true;
+                });
+            }
+            
+            // Validation for repay form
+            const repayForm = document.querySelector('#repayModal form');
+            if (repayForm) {
+                repayForm.addEventListener('submit', function(e) {
+                    const repayAmount = parseFloat(document.getElementById('repay_amount').value);
+                    const maxAmount = parseFloat(document.getElementById('repay_amount').max);
+                    
+                    // Check if repay amount is valid
+                    if (isNaN(repayAmount) || repayAmount <= 0) {
+                        e.preventDefault();
+                        alert('Please enter a valid repayment amount greater than zero.');
+                        return false;
+                    }
+                    
+                    // Check if repay amount exceeds remaining amount
+                    if (repayAmount > maxAmount) {
+                        e.preventDefault();
+                        alert(`Repayment amount cannot exceed the remaining amount (${maxAmount}/=).`);
+                        return false;
+                    }
+                    
+                    return true;
+                });
+            }
+            
+            // Initialize Select2 for better dropdown UX if jQuery is available
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                // Initialize Select2 on all selects 
+                $('select').select2({
+                    width: '100%',
+                    dropdownCssClass: 'select2-dropdown'
+                });
+                
+                // Add special event handlers for Select2 changes
+                $('#new_bank_name, #repay_bank_name').on('select2:select', function() {
+                    updateAccountNumbers(this, 'bank');
+                });
+                
+                $('#new_mfs_name, #repay_mfs_name').on('select2:select', function() {
+                    updateAccountNumbers(this, 'mfs');
+                });
+            }
+            
+            // Sort loan tables by due date if present
+            function sortTableByColumn(tableSelector, columnIndex, ascending = false) {
+                const table = document.querySelector(tableSelector);
+                if (!table) return;
+                
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                
+                // Sort the rows
+                rows.sort((a, b) => {
+                    const aValue = a.querySelectorAll('td')[columnIndex].textContent.trim();
+                    const bValue = b.querySelectorAll('td')[columnIndex].textContent.trim();
+                    
+                    // If we're comparing dates
+                    if (aValue.match(/^\d{4}-\d{2}-\d{2}/) && bValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+                        const dateA = new Date(aValue);
+                        const dateB = new Date(bValue);
+                        return ascending ? dateA - dateB : dateB - dateA;
+                    }
+                    
+                    // Default string comparison
+                    return ascending ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                });
+                
+                // Append sorted rows back to the table
+                rows.forEach(row => tbody.appendChild(row));
+            }
+            
+            // Sort active loans by due date (earliest first)
+            sortTableByColumn('.table:first-of-type', 4, true);
+            
+            // Loan Details Enhancement
+            function enhanceLoanDetails() {
+                // This function will be called when loan details are loaded
+                document.addEventListener('loan-details-loaded', function(e) {
+                    console.log('Loan details loaded, enhancing UI...');
+                    
+                    // Add visual enhancements to loan details view
+                    const detailsContainer = document.getElementById('loanDetailsContent');
+                    if (detailsContainer) {
+                        // Add payment history visualization if available
+                        const paymentHistory = detailsContainer.querySelector('.payment-history');
+                        if (paymentHistory) {
+                            // Enhance the payment history display
+                            const payments = paymentHistory.querySelectorAll('li, tr');
+                            payments.forEach((payment, index) => {
+                                payment.classList.add('payment-item');
+                                
+                                // Add animation delay based on index
+                                payment.style.animationDelay = `${index * 0.1}s`;
+                                
+                                // Add visual indicator for payment
+                                const indicator = document.createElement('span');
+                                indicator.classList.add('payment-indicator');
+                                payment.appendChild(indicator);
+                            });
+                        }
+                    }
+                });
+            }
+            
+            // Initialize loan details enhancement
+            enhanceLoanDetails();
+            
+            // Dispatch custom event when loan details are loaded via AJAX
+            const originalFetch = window.fetch;
+            window.fetch = function() {
+                return originalFetch.apply(this, arguments).then(response => {
+                    if (arguments[0].includes('/loan_details/')) {
+                        response.clone().text().then(() => {
+                            setTimeout(() => {
+                                document.dispatchEvent(new CustomEvent('loan-details-loaded'));
+                            }, 100);
+                        });
+                    }
+                    return response;
+                });
+            };
+        });
+    </script>
+    
+    <style>
+        /* Additional styles for loan details and animations */
+        .payment-item {
+            animation: fadeIn 0.5s ease-in-out forwards;
+            opacity: 0;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .payment-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #28a745;
+            margin-left: 5px;
+        }
+        
+        /* Other existing styles remain unchanged */
+    </style>
+{% endblock %}

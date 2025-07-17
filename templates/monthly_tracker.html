@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+{% block title %}Monthly Tracker{% endblock %}
+{% block link %}
+<!-- Chart.js for visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+{% block content %}
+
+<div class="master">
+    <div class="container">
+        <h1>Monthly Financial Tracker</h1>
+        
+        <div class="month-navigation">
+            <a href="{{ url_for('monthly_tracker', year=prev_year, month=prev_month) }}" class="nav-button">&lt; Previous Month</a>
+            
+            <form method="GET" action="{{ url_for('monthly_tracker') }}" class="month-selector">
+                <select name="month" id="month-select">
+                    {% for i in range(1, 13) %}
+                    <option value="{{ i }}" {% if i == month %}selected{% endif %}>{{ month_names[i-1] }}</option>
+                    {% endfor %}
+                </select>
+                
+                <select name="year" id="year-select">
+                    {% for y in range(current_year-5, current_year+1) %}
+                    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+                
+                <button type="submit" class="view-button">View</button>
+            </form>
+            
+            <a href="{{ url_for('monthly_tracker', year=next_year, month=next_month) }}" class="nav-button">Next Month &gt;</a>
+        </div>
+        
+        <div class="current-month">
+            <h2>{{ month_name }}</h2>
+            {% if year == current_year and month == current_month %}
+            <span class="current-month-badge">Current Month</span>
+            {% endif %}
+        </div>
+        
+        <div class="summary-cards">
+            <div class="summary-card income">
+                <h3>Total Income</h3>
+                <p class="amount">{{ total_income }}/=</p>
+            </div>
+            <div class="summary-card expense">
+                <h3>Total Expenses</h3>
+                <p class="amount">{{ total_expense }}/=</p>
+            </div>
+            <div class="summary-card {% if net_amount >= 0 %}positive{% else %}negative{% endif %}">
+                <h3>Net Amount</h3>
+                <p class="amount">{{ net_amount }}/=</p>
+            </div>
+        </div>
+        
+        <div class="category-charts">
+            <div class="chart-container">
+                <h3>Income by Category</h3>
+                {% if income_by_category %}
+                <div class="chart-wrapper">
+                    <canvas id="incomeChart"></canvas>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category, amount in income_by_category.items()|sort(reverse=true, attribute='1') %}
+                            <tr>
+                                <td>{{ category }}</td>
+                                <td>{{ amount }}/=</td>
+                                <td>{{ "%.1f"|format(amount / total_income * 100) if total_income else 0 }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="no-data">No income recorded for this month.</p>
+                {% endif %}
+            </div>
+            
+            <div class="chart-container">
+                <h3>Expenses by Category</h3>
+                {% if expense_by_category %}
+                <div class="chart-wrapper">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category, amount in expense_by_category.items()|sort(reverse=true, attribute='1') %}
+                            <tr>
+                                <td>{{ category }}</td>
+                                <td>{{ amount }}/=</td>
+                                <td>{{ "%.1f"|format(amount / total_expense * 100) if total_expense else 0 }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="no-data">No expenses recorded for this month.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .master {
+        margin: 20px;
+        padding: 40px;
+        background: radial-gradient(circle, rgba(39, 180, 159, 0.7247899159663865) 0%, rgba(210, 183, 241, 0.8396358543417367) 90%);
+        box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        margin-bottom: 40px;
+    }
+    
+    .month-navigation {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .month-selector {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .month-selector select {
+        padding: 8px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+    }
+    
+    .nav-button {
+        padding: 8px 15px;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+    }
+    
+    .view-button {
+        padding: 8px 15px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    
+    .current-month {
+        text-align: center;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    
+    .current-month h2 {
+        font-size: 24px;
+        margin-bottom: 5px;
+    }
+    
+    .current-month-badge {
+        background-color: #28a745;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+    }
+    
+    .summary-cards {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+        gap: 15px;
+    }
+    
+    .summary-card {
+        flex: 1;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        color: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .summary-card.income {
+        background-color: #28a745;
+    }
+    
+    .summary-card.expense {
+        background-color: #dc3545;
+    }
+    
+    .summary-card.positive {
+        background-color: #17a2b8;
+    }
+    
+    .summary-card.negative {
+        background-color: #6c757d;
+    }
+    
+    .amount {
+        font-size: 24px;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+    
+    .category-charts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    
+    .chart-container {
+        background-color: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chart-container h3 {
+        text-align: center;
+        margin-bottom: 15px;
+        color: #333;
+    }
+    
+    /* Fixed chart wrapper - this resolves the infinite scrolling issue */
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    /* Update canvas styling to prevent overflow */
+    canvas {
+        max-width: 100%;
+        max-height: 100%;
+    }
+    
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    
+    .table th, .table td {
+        padding: 8px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .table th {
+        background-color: #f8f9fa;
+    }
+    
+    .no-data {
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+        padding: 30px 0;
+    }
+    
+    @media (max-width: 768px) {
+        .category-charts {
+            grid-template-columns: 1fr;
+        }
+        
+        .summary-cards {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Income Chart
+        {% if income_by_category %}
+        const incomeCtx = document.getElementById('incomeChart').getContext('2d');
+        new Chart(incomeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [
+                    {% for category in income_by_category %}
+                    '{{ category|e }}'{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                datasets: [{
+                    data: [
+                        {% for category, amount in income_by_category.items() %}
+                        {{ amount }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    backgroundColor: [
+                        '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', 
+                        '#ff9800', '#ff5722', '#795548', '#9e9e9e', '#607d8b',
+                        '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 15
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${context.label}: ${value}/= (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
+        
+        // Expense Chart
+        {% if expense_by_category %}
+        const expenseCtx = document.getElementById('expenseChart').getContext('2d');
+        new Chart(expenseCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [
+                    {% for category in expense_by_category %}
+                    '{{ category|e }}'{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                datasets: [{
+                    data: [
+                        {% for category, amount in expense_by_category.items() %}
+                        {{ amount }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    backgroundColor: [
+                        '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
+                        '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50',
+                        '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 15
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${context.label}: ${value}/= (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
+        
+        // Auto-submit form when month or year changes
+        document.getElementById('month-select').addEventListener('change', function() {
+            document.querySelector('.month-selector').submit();
+        });
+        
+        document.getElementById('year-select').addEventListener('change', function() {
+            document.querySelector('.month-selector').submit();
+        });
+    });
+</script>
+{% endblock %}
