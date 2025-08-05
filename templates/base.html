@@ -30,7 +30,7 @@
                 {% if current_user.is_admin %}
                 <li><a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-shield-alt"></i> Admin</a></li>
                 <form method="POST" action="{{ url_for('logout') }}" style="margin: 0;">
-                    <button type="submit" class="logout-btn">
+                    <button type="submit" class="logout-btn" style="background-color: #e74c3c; color: white; padding: 10px 16px; border: none; border-radius: 5px; cursor: pointer;">
                         <i class="fas fa-sign-out-alt"></i> Logout
                     </button>
                 </form>
@@ -65,8 +65,10 @@
                 <li><a href="/#features">Features</a></li>
                 <li><a href="{{ url_for('contact') }}">Contact</a></li>
                 <li>
-                    <button style="background-color: green; border-radius: 10px; font-size: 20px;">
-                        <a href="{{ url_for('login') }}" style="text-decoration: none; color: white;">Log in</a>
+                    <button style="background-color: green; padding: 10px 16px; border: none; border-radius: 5px; cursor: pointer;">
+                        <a href="{{ url_for('login') }}" style="text-decoration: none; color: white; display: flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-sign-in-alt"></i> Log in
+                        </a>
                     </button>
                 </li>
                 {% endif %}
