@@ -6,20 +6,19 @@
 {% block content %}
 
 <div class="master">
-    <div class="form-container" style="margin-bottom: 30px; padding: 20px;">
+    <div class="form-container" style="margin-bottom: px; padding: 20px;">
         <h1>Sign Up</h1>
         <form method="POST" action="/signup">
             <label for="username">Username:</label><br>
             <input type="text" id="username" name="username" placeholder="Enter your username" required
-                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; width:190.909px; padding: 10px; background-color: #f9f9f9;"><br><br>
+                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; padding: 10px; background-color: #f9f9f9;"><br><br>
 
             <label for="email">Email:</label><br>
             <input type="email" id="email" name="email" placeholder="Enter your email" required
-                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; width:190.909px; padding: 10px; background-color: #f9f9f9;"><br><br>
+                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px;  padding: 10px; background-color: #f9f9f9;"><br><br>
 
             <label for="password">Password:</label><br>
-            <div
-                style="display: flex; align-items: center; border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; padding: 5px; background-color: #f9f9f9;">
+            <div class="password-container">
                 <input type="password" id="password" name="password" placeholder="Enter your password" required
                     style="background-color: #f9f9f9;border: none; outline: none; flex: 1;">
                 <img src="{{ url_for('static', filename='visible.svg') }}" id="togglePassword"
@@ -28,8 +27,7 @@
             <br>
 
             <label for="confirm_password">Confirm Password:</label><br>
-            <div
-                style="display: flex; align-items: center; border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; padding: 5px; background-color: #f9f9f9;">
+            <div class="password-container">
                 <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password"
                     required style="background-color: #f9f9f9; border: none; outline: none; flex: 1;">
                 <img src="{{ url_for('static', filename='visible.svg') }}" id="toggleConfirmPassword"

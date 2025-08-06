@@ -276,3 +276,251 @@ footer{
 .dropdown-content a:hover, .dropdown-content form button:hover {
     background-color: #ddd;
 }
+.hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+    margin: 20px 10px;
+    z-index: 1001;
+    position: absolute;
+    right: 20px;
+    top: 20px;
+}
+
+.hamburger span {
+    height: 3px;
+    width: 28px;
+    background: #333;
+    margin: 4px 0;
+    border-radius: 2px;
+    transition: 0.4s;
+}
+
+/* Hamburger animation when active */
+.hamburger.active span:nth-child(1) {
+    transform: rotate(-45deg) translate(-5px, 6px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(45deg) translate(-5px, -6px);
+}
+@media (max-width: 768px) {
+    .hamburger {
+        display: flex !important;
+    }
+    
+    nav {
+        position: relative;
+    }
+    
+    #nav-left {
+        margin-right: 60px; /* Make space for hamburger */
+    }
+    
+    #nav-right {
+        padding-right: 0;
+    }
+    
+    #nav-right ul.nav-con {
+        display: none;
+        flex-direction: column;
+        background: rgba(255, 255, 255, 0.98);
+        position: absolute;
+        top: 120px;
+        right: 10px;
+        width: 250px;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        padding: 15px 0;
+        border: 1px solid #e0e0e0;
+    }
+    
+    #nav-right ul.nav-con.show {
+        display: flex !important;
+    }
+    
+    .nav-con li {
+        width: 100%;
+        padding: 5px 15px;
+    }
+    
+    .nav-con a, .nav-con button {
+        width: 100%;
+        text-align: left;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    
+    .nav-con a:hover {
+        background-color: #f5f5f5;
+    }
+    
+    /* Hide regular nav on mobile */
+    #nav-right ul.nav-con {
+        display: none;
+    }
+    
+    /* Features responsive */
+    .features-container {
+        grid-template-columns: 1fr;
+    }
+    
+    #banner h1 {
+        font-size: 32px;
+        padding: 20px;
+    }
+    
+    #banner p {
+        font-size: 18px;
+        padding: 20px;
+    }
+        #work {
+        height: auto;
+        padding: 40px 20px;
+        margin: 20px 0;
+    }
+    
+    #work h1 {
+        font-size: 28px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    #work ul {
+        padding: 0 20px;
+        margin: 0;
+    }
+    
+    #work li {
+        font-size: 16px;
+        margin-bottom: 15px;
+        line-height: 1.5;
+        text-align: left;
+    }
+    
+    /* CTA section mobile fixes */
+    #cta-container {
+        height: auto;
+        margin: 20px 0;
+        padding: 0 10px;
+    }
+    
+    #cta {
+        height: auto;
+        width: 95vw;
+        padding: 30px 20px;
+        margin: 0 auto;
+    }
+    
+    #cta h1 {
+        font-size: 24px;
+        padding: 20px 10px;
+        text-align: center;
+        line-height: 1.3;
+    }
+    
+    #cta p {
+        font-size: 16px;
+        padding: 10px;
+        text-align: center;
+        line-height: 1.4;
+    }
+    
+    /* Button fixes for mobile */
+    .btn {
+        font-size: 18px;
+        padding: 12px 24px;
+        margin: 20px 10px;
+        width: auto;
+        display: inline-block;
+    }
+    
+    /* Banner mobile fixes */
+    .banner-container {
+        padding: 0 10px;
+    }
+    
+    #banner {
+        width: 95vw;
+        height: auto;
+        min-height: 60vh;
+        padding: 30px 20px;
+    }
+    
+    /* Features section mobile fixes */
+    #features {
+        height: auto;
+        margin: 40px 20px;
+        padding: 0;
+    }
+    
+    #features h1 {
+        font-size: 28px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    
+    #features .midtxt {
+        font-size: 18px;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .feature {
+        width: 90%;
+        height: auto;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .feature h3 {
+        font-size: 18px;
+    }
+    
+    .feature p {
+        font-size: 16px !important;
+        line-height: 1.4;
+    }
+    
+    .ftup img {
+        height: 40px;
+        width: 40px;
+    }
+}
+@media (max-width: 480px) {
+    #work li {
+        font-size: 14px;
+        margin-bottom: 12px;
+    }
+    
+    #cta h1 {
+        font-size: 20px;
+        padding: 15px 5px;
+    }
+    
+    #cta p {
+        font-size: 14px;
+        padding: 5px;
+    }
+    
+    .btn {
+        font-size: 16px;
+        padding: 10px 20px;
+        margin: 15px 5px;
+    }
+    
+    #banner h1 {
+        font-size: 24px;
+        padding: 15px;
+    }
+    
+    #banner p {
+        font-size: 16px;
+        padding: 15px;
+    }
+}

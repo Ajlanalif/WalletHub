@@ -15,6 +15,11 @@
 <body>
 
     <nav>
+            <div class="hamburger" id="hamburger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
         <div id="nav-left">
             <a href="{{ url_for('home') }}"><img src="{{ url_for('static', filename='fintrack.png') }}" alt=""
                     id="nav-left-img"></a>
@@ -106,20 +111,24 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var floatingWindows = document.querySelectorAll('.floating-window');
-            floatingWindows.forEach(function (floatingWindow) {
-                if (floatingWindow.innerText.trim() !== '') {
-                    floatingWindow.style.display = 'block';
-                    setTimeout(function () {
-                        floatingWindow.style.display = 'none';
-                    }, 5000);
-                }
-            });
-            var dropbtn = document.querySelector('.dropbtn');
-            var dropdownContent = document.querySelector('.dropdown-content');
+        // Floating windows
+        var floatingWindows = document.querySelectorAll('.floating-window');
+        floatingWindows.forEach(function (floatingWindow) {
+            if (floatingWindow.innerText.trim() !== '') {
+                floatingWindow.style.display = 'block';
+                setTimeout(function () {
+                    floatingWindow.style.display = 'none';
+                }, 5000);
+            }
+        });
 
+        // Dropdown functionality
+        var dropbtn = document.querySelector('.dropbtn');
+        var dropdownContent = document.querySelector('.dropdown-content');
+
+        if (dropbtn && dropdownContent) {
             dropbtn.addEventListener('click', function (event) {
-                event.stopPropagation(); // Prevent closing when clicking the button
+                event.stopPropagation();
                 dropdownContent.style.display = (dropdownContent.style.display === 'block') ? 'none' : 'block';
             });
 
@@ -128,7 +137,35 @@
                     dropdownContent.style.display = 'none';
                 }
             });
-        });
+        }
+
+        // Hamburger menu functionality
+        var hamburger = document.getElementById('hamburger-menu');
+        var navLinks = document.querySelector('#nav-right ul.nav-con');
+
+        if (hamburger && navLinks) {
+            hamburger.addEventListener('click', function() {
+                navLinks.classList.toggle('show');
+                hamburger.classList.toggle('active');
+            });
+
+            // Hide menu when clicking a link
+            navLinks.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    navLinks.classList.remove('show');
+                    hamburger.classList.remove('active');
+                });
+            });
+
+            // Hide menu when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!hamburger.contains(event.target) && !navLinks.contains(event.target)) {
+                    navLinks.classList.remove('show');
+                    hamburger.classList.remove('active');
+                }
+            });
+        }
+    });
     </script>
 
 
