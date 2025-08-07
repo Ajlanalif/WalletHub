@@ -17,6 +17,15 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+def create_upload_folder():
+    """Create upload folder if it doesn't exist"""
+    uploads_dir = os.path.join('static', 'uploads')
+    if not os.path.exists(uploads_dir):
+        os.makedirs(uploads_dir)
+        print(f"Created uploads directory: {uploads_dir}")
+create_upload_folder()
+
+
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -245,9 +254,12 @@ def initial_user_setup():
         photo = request.files.get('photo')
 
         if photo and allowed_file(photo.filename):
+            uploads_dir = app.config['UPLOAD_FOLDER']
+            if not os.path.exists(uploads_dir):
+                os.makedirs(uploads_dir)
             file_ext = photo.filename.rsplit('.', 1)[1].lower()
             filename = f"{current_user.username}.{file_ext}"
-            photo.save(os.path.join('static','uploads', filename))
+            photo.save(os.path.join(uploads_dir, filename))
             photo_path = 'static/uploads/' + filename
         else:
             photo_path = None

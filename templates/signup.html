@@ -2,38 +2,197 @@
 {% block title %} SignUp {% endblock %}
 {% block link %}
 <link rel="stylesheet" href="./static/contact.css">
-{% endblock %}
-{% block content %}
+<style>
+/* Password strength indicator */
+.password-input-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
 
+.password-requirements {
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    transform: translateY(-50%);
+    margin-left: 15px;
+    padding: 8px 12px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 5px;
+    font-size: 12px;
+    color: #856404;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 1000;
+    display: none;
+    min-width: 280px;
+}
+
+.password-requirements:before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -6px;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: #ffeaa7;
+}
+
+.password-requirements.show {
+    display: block;
+}
+
+.password-requirements.valid {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.password-requirements.valid:before {
+    border-right-color: #c3e6cb;
+}
+
+.password-container {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 5px;
+    background-color: #f9f9f9;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.password-mismatch {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.password-match {
+    color: #28a745;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+button[type="submit"] {
+    background-color: green;
+    color: white;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+}
+
+button[type="submit"]:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    .password-input-wrapper {
+        position: relative;
+    }
+    
+    .password-requirements {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        transform: none;
+        margin-left: 0;
+        margin-top: 8px;
+        white-space: normal;
+        min-width: auto;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .password-requirements:before {
+        top: -6px;
+        left: 20px;
+        transform: none;
+        border: 6px solid transparent;
+        border-bottom-color: #ffeaa7;
+        border-right-color: transparent;
+    }
+    
+    .password-requirements.valid:before {
+        border-bottom-color: #c3e6cb;
+        border-right-color: transparent;
+    }
+    
+    .form-container {
+        padding: 20px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .password-requirements {
+        font-size: 11px;
+        padding: 6px 10px;
+    }
+    
+    .form-container {
+        padding: 15px !important;
+    }
+    
+    .password-container {
+        padding: 8px;
+    }
+}
+
+/* For very large screens, adjust floating position */
+@media (min-width: 1200px) {
+    .password-requirements {
+        margin-left: 20px;
+        min-width: 320px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
 <div class="master">
-    <div class="form-container" style=" padding: 40px;">
+    <div class="form-container" style="padding: 40px;">
         <h1>Sign Up</h1>
-        <form method="POST" action="/signup">
+        <form method="POST" action="/signup" id="signupForm">
             <label for="username">Username:</label><br>
             <input type="text" id="username" name="username" placeholder="Enter your username" required
-                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; padding: 10px; background-color: #f9f9f9;"><br><br>
+                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; padding: 10px; background-color: #f9f9f9; width: 100%; box-sizing: border-box;"><br><br>
 
             <label for="email">Email:</label><br>
             <input type="email" id="email" name="email" placeholder="Enter your email" required
-                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px;  padding: 10px; background-color: #f9f9f9;"><br><br>
+                style="border: 1px solid #ccc; border-radius: 5px; margin-top: 10px; padding: 10px; background-color: #f9f9f9; width: 100%; box-sizing: border-box;"><br><br>
 
             <label for="password">Password:</label><br>
-            <div class="password-container">
-                <input type="password" id="password" name="password" placeholder="Enter your password" required
-                    style="background-color: #f9f9f9;border: none; outline: none; flex: 1;">
-                <img src="{{ url_for('static', filename='visible.svg') }}" id="togglePassword"
-                    style="cursor: pointer; width: 24px; height: 24px;filter: brightness(0) invert(0);">
-            </div>
-            <br>
+            <div class="password-input-wrapper">
+                <div class="password-container">
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required
+                        style="background-color: #f9f9f9; border: none; outline: none; flex: 1; padding: 5px;">
+                    <img src="{{ url_for('static', filename='visible.svg') }}" id="togglePassword"
+                        style="cursor: pointer; width: 24px; height: 24px; filter: brightness(0) invert(0); margin-left: 5px;">
+                </div>
+                
+                <!-- Floating Password Requirement Message -->
+                <div class="password-requirements" id="passwordMessage">
+                    Password must be at least 8 characters and contain at least one capital letter, small letter, digit and special character.
+                </div>
+            </div><br>
 
             <label for="confirm_password">Confirm Password:</label><br>
             <div class="password-container">
                 <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password"
-                    required style="background-color: #f9f9f9; border: none; outline: none; flex: 1;">
+                    required style="background-color: #f9f9f9; border: none; outline: none; flex: 1; padding: 5px;">
                 <img src="{{ url_for('static', filename='visible.svg') }}" id="toggleConfirmPassword"
-                    style="cursor: pointer; width: 24px; height: 24px;filter: brightness(0) invert(0);">
-            </div><br>
-            <button type="submit">Sign Up</button>
+                    style="cursor: pointer; width: 24px; height: 24px; filter: brightness(0) invert(0); margin-left: 5px;">
+            </div>
+            <div id="passwordMatchMessage"></div><br>
+            
+            <button type="submit" id="submitBtn" disabled>Sign Up</button>
         </form>
         <div class="login">
             <p>Already have an account?</p>
@@ -43,30 +202,132 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelector('form').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.submit();
-            }
-        });
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('signupForm');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirm_password');
+    const submitBtn = document.getElementById('submitBtn');
+    const passwordMatchMessage = document.getElementById('passwordMatchMessage');
+    const passwordMessage = document.getElementById('passwordMessage');
 
-        const togglePassword = document.querySelector('#togglePassword');
-        const password = document.querySelector('#password');
+    function validatePassword(password) {
+        const requirements = {
+            length: password.length >= 8,
+            uppercase: /[A-Z]/.test(password),
+            lowercase: /[a-z]/.test(password),
+            digit: /[0-9]/.test(password),
+            special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        };
+        
+        return Object.values(requirements).every(req => req === true);
+    }
+
+    function validatePasswordMatch() {
+        if (confirmPassword.value === '') {
+            passwordMatchMessage.innerHTML = '';
+            return false;
+        }
+        
+        if (password.value === confirmPassword.value) {
+            passwordMatchMessage.innerHTML = '<div class="password-match">✓ Passwords match</div>';
+            return true;
+        } else {
+            passwordMatchMessage.innerHTML = '<div class="password-mismatch">✗ Passwords do not match</div>';
+            return false;
+        }
+    }
+
+    function updatePasswordMessage() {
+        if (password.value === '') {
+            passwordMessage.classList.remove('show', 'valid');
+            return false;
+        }
+        
+        passwordMessage.classList.add('show');
+        
+        if (validatePassword(password.value)) {
+            passwordMessage.classList.add('valid');
+            passwordMessage.textContent = '✓ Password meets all requirements';
+            return true;
+        } else {
+            passwordMessage.classList.remove('valid');
+            passwordMessage.textContent = 'Password must be at least 8 characters and contain at least one capital letter, small letter, digit and special character.';
+            return false;
+        }
+    }
+
+    function updateSubmitButton() {
+        const passwordValid = updatePasswordMessage();
+        const passwordsMatch = validatePasswordMatch();
+        
+        if (passwordValid && passwordsMatch && password.value !== '') {
+            submitBtn.disabled = false;
+            submitBtn.style.backgroundColor = '#28a745';
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.style.backgroundColor = '#6c757d';
+        }
+    }
+
+    // Real-time password validation
+    password.addEventListener('input', updateSubmitButton);
+    confirmPassword.addEventListener('input', updateSubmitButton);
+
+    // Show message on focus
+    password.addEventListener('focus', function() {
+        if (password.value !== '') {
+            updatePasswordMessage();
+        } else {
+            passwordMessage.classList.add('show');
+        }
+    });
+
+    // Hide message when clicking outside (optional)
+    document.addEventListener('click', function(e) {
+        if (!password.contains(e.target) && !passwordMessage.contains(e.target)) {
+            if (password.value === '' || validatePassword(password.value)) {
+                passwordMessage.classList.remove('show');
+            }
+        }
+    });
+
+    // Form submission validation
+    form.addEventListener('submit', function(e) {
+        const passwordValid = validatePassword(password.value);
+        const passwordsMatch = password.value === confirmPassword.value;
+        
+        if (!passwordValid) {
+            e.preventDefault();
+            alert('Password must be at least 8 characters and contain at least one capital letter, small letter, digit and special character.');
+            return false;
+        }
+        
+        if (!passwordsMatch) {
+            e.preventDefault();
+            alert('Passwords do not match!');
+            return false;
+        }
+    });
+
+    // Password visibility toggle
+    const togglePassword = document.querySelector('#togglePassword');
+    if (togglePassword && password) {
         togglePassword.addEventListener('click', function (e) {
             const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
             password.setAttribute('type', type);
             this.src = type === 'password' ? "{{ url_for('static', filename='visible.svg') }}" : "{{ url_for('static', filename='non_visible.svg') }}";
         });
+    }
 
-        const toggleConfirmPassword = document.querySelector('#toggleConfirmPassword');
-        const confirmPassword = document.querySelector('#confirm_password');
+    const toggleConfirmPassword = document.querySelector('#toggleConfirmPassword');
+    if (toggleConfirmPassword && confirmPassword) {
         toggleConfirmPassword.addEventListener('click', function (e) {
             const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
             confirmPassword.setAttribute('type', type);
             this.src = type === 'password' ? "{{ url_for('static', filename='visible.svg') }}" : "{{ url_for('static', filename='non_visible.svg') }}";
         });
-    });
+    }
+});
 </script>
 
 {% endblock %}
