@@ -94,12 +94,29 @@
                 <tr class="{{ transaction.transaction_type }}">
                     <td>{{ transaction.timestamp.strftime('%Y-%m-%d') }}</td>
                     <td>
-                        {% if transaction.transaction_type == 'transfer' and transaction.destination_type == 'mfs' %}
-                        <!-- This is a received transfer -->
-                        {{ transaction.source_mfs_name }} - {{ transaction.source_mfs_number[-4:] }}
+                        {% if transaction.transaction_type == 'transfer' %}
+                            {% if transaction.source_type == 'mfs' %}
+                                <!-- This is an outgoing transfer from MFS -->
+                                {% if transaction.source_mfs_name and transaction.source_mfs_number %}
+                                    {{ transaction.source_mfs_name }} - {{ transaction.source_mfs_number[-4:] }}
+                                {% else %}
+                                    MFS Account
+                                {% endif %}
+                            {% elif transaction.destination_type == 'mfs' %}
+                                <!-- This is an incoming transfer to MFS -->
+                                {% if transaction.destination_mfs_name and transaction.destination_mfs_number %}
+                                    {{ transaction.destination_mfs_name }} - {{ transaction.destination_mfs_number[-4:] }}
+                                {% else %}
+                                    MFS Account
+                                {% endif %}
+                            {% endif %}
                         {% else %}
-                        <!-- This is a sent transaction/transfer -->
-                        {{ transaction.source_mfs_name }} - {{ transaction.source_mfs_number[-4:] }}
+                            <!-- Regular income/expense transaction -->
+                            {% if transaction.source_mfs_name and transaction.source_mfs_number %}
+                                {{ transaction.source_mfs_name }} - {{ transaction.source_mfs_number[-4:] }}
+                            {% else %}
+                                MFS Account
+                            {% endif %}
                         {% endif %}
                     </td>
                     <td>
@@ -621,16 +638,108 @@
 
 
     @media (max-width: 768px) {
-        .filter-group {
-            width: 100%;
+        .container {
+            padding: 10px;
+            margin: 0;
         }
 
-        .transaction-filters form {
+        .header {
             flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .mfs-info {
+            padding: 15px 10px;
+        }
+
+        .balance-summary h2 {
+            font-size: 20px;
         }
 
         .accounts-grid {
             grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .accounts-header {
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+        }
+
+        .add-account-button {
+            align-self: center;
+        }
+
+        .transaction-filters form {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .filter-group {
+            width: 100%;
+            min-width: auto;
+        }
+
+        .transaction-table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .transaction-table {
+            min-width: 600px;
+        }
+
+        .transaction-table th,
+        .transaction-table td {
+            padding: 8px 6px;
+            font-size: 14px;
+        }
+
+        .modal-content {
+            width: 95%;
+            margin: 5% auto;
+        }
+
+        .account-card {
+            padding: 12px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .container {
+            padding: 5px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+        }
+
+        .balance-summary h2 {
+            font-size: 18px;
+        }
+
+        .transaction-table th,
+        .transaction-table td {
+            padding: 6px 4px;
+            font-size: 13px;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+        }
+
+        .modal-content {
+            width: 98%;
+            margin: 2% auto;
         }
     }
     /* Modal Styles */

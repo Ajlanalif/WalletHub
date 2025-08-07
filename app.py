@@ -631,10 +631,16 @@ def mfs_transactions():
     mfs_accounts = MFSBalance.query.filter_by(user_id=current_user.id).all()
     mfs_balance = sum(mfs.balance for mfs in mfs_accounts)
     
-    # Build the query for transactions
-    query = Transaction.query.filter_by(
-        user_id=current_user.id,
-        source_type='mfs'
+    # Build the query for transactions - INCLUDE RECEIVED TRANSFERS
+    query = Transaction.query.filter(
+        Transaction.user_id == current_user.id,
+        db.or_(
+            Transaction.source_type == 'mfs',
+            db.and_(
+                Transaction.transaction_type == 'transfer',
+                Transaction.destination_type == 'mfs'
+            )
+        )
     )
     
     # Filter by specific MFS account if requested
@@ -643,8 +649,16 @@ def mfs_transactions():
         mfs_account = MFSBalance.query.get(int(account_id))
         if mfs_account:
             query = query.filter(
-                (Transaction.source_mfs_name == mfs_account.mfs_name) & 
-                (Transaction.source_mfs_number == mfs_account.account_no)
+                db.or_(
+                    db.and_(
+                        Transaction.source_mfs_name == mfs_account.mfs_name,
+                        Transaction.source_mfs_number == mfs_account.account_no
+                    ),
+                    db.and_(
+                        Transaction.destination_mfs_name == mfs_account.mfs_name,
+                        Transaction.destination_mfs_number == mfs_account.account_no
+                    )
+                )
             )
     
     # Apply other filters
@@ -662,7 +676,7 @@ def mfs_transactions():
         end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
         query = query.filter(Transaction.timestamp < end_date)
     
-    # Get transactions ordered by newest first
+    # Get transactions ordered by DATE FIRST, then by ID (both descending for newest first)
     transactions = query.order_by(Transaction.timestamp.desc(), Transaction.id.desc()).all()
     
     return render_template(

@@ -718,6 +718,290 @@
         font-weight: bold;
         margin-top: 5px;
     }
+    @media (max-width: 768px) {
+    .master {
+        margin: 10px;
+        padding: 20px;
+    }
+
+    /* Balance container - stack tiles vertically on mobile */
+    .balance-container {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center; /* Center the tiles vertically */
+        width: 100%;
+        margin: 0 auto;
+        padding: 20px 0;
+
+    }
+
+    .balance-tile {
+        width: 100% !important;
+        
+        margin: 15px 0;
+        box-sizing: border-box;
+    }
+
+    .balance-tile-link {
+        width: 100%;
+        display: block;
+        text-decoration: none;
+    }
+
+    /* Transaction container responsive */
+    .transaction-container {
+        max-width: 100%;
+        padding: 15px;
+        margin: 0;
+    }
+
+    /* Transaction buttons - stack on mobile */
+    .transaction-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .tab-button {
+        margin: 5px 0;
+        padding: 12px;
+        font-size: 16px;
+    }
+
+    /* Form elements responsive */
+    .transaction-form {
+        padding: 15px;
+    }
+
+    input, select, textarea {
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: 12px;
+        margin: 8px 0;
+    }
+
+    button {
+        font-size: 16px;
+        padding: 12px 20px;
+        width: 100%;
+        margin: 10px 0;
+    }
+
+    /* Hidden fields - better spacing */
+    .hidden {
+        display: none !important;
+    }
+
+    /* Form labels */
+    label {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    /* Headers responsive */
+    .form-container h1 {
+        font-size: 24px;
+        margin-bottom: 15px;
+    }
+
+    .form-container h2 {
+        font-size: 20px;
+        margin-bottom: 20px;
+    }
+
+    .transaction-form h3 {
+        font-size: 18px;
+        margin-bottom: 15px;
+    }
+
+    .transaction-form h4 {
+        font-size: 16px;
+        margin: 15px 0 10px 0;
+        color: #495057;
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 5px;
+    }
+
+    /* View all button responsive */
+    .view-all-button {
+        width: 100%;
+        text-align: center;
+        padding: 15px 20px;
+        font-size: 16px;
+        margin: 20px 0;
+    }
+
+    /* Modal responsive */
+    .modal-content {
+        width: 95%;
+        margin: 5% auto;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        padding: 12px 15px;
+    }
+
+    .modal-body {
+        padding: 15px;
+    }
+
+    .form-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .form-actions button {
+        width: 100%;
+        margin: 5px 0;
+    }
+
+    /* Loan tile specific */
+    .loan-due-badge {
+        font-size: 0.75em;
+        padding: 2px 6px;
+    }
+
+    /* Tile hints */
+    .tile-hint {
+        font-size: 0.85em;
+        margin-top: 5px;
+    }
+
+    /* Select2 mobile fixes */
+    .select2-container {
+        width: 100% !important;
+    }
+
+    .select2-container--default .select2-selection--single {
+        height: 44px !important;
+        padding: 8px !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 28px !important;
+        padding-left: 8px !important;
+    }
+
+    .select2-dropdown {
+        font-size: 16px;
+    }
+
+    /* Datalist input styling for mobile */
+    input[list] {
+        -webkit-appearance: none;
+        appearance: none;
+    }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+    .master {
+        margin: 5px;
+        padding: 15px;
+    }
+
+    .form-container h1 {
+        font-size: 20px;
+    }
+
+    .form-container h2 {
+        font-size: 18px;
+    }
+
+    .balance-tile {
+        width: 100%;
+        padding: 15px;
+    }
+
+    .transaction-container {
+        padding: 10px;
+    }
+
+    .transaction-form {
+        padding: 10px;
+    }
+
+    .tab-button {
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    input, select, textarea {
+        padding: 10px;
+        font-size: 16px;
+    }
+
+    button {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+
+    .modal-content {
+        width: 98%;
+        margin: 2% auto;
+    }
+
+    /* Expense form button wrapper */
+    .submit-button, .loan-button {
+        font-size: 14px !important;
+        padding: 10px 15px !important;
+        margin: 5px 0 !important;
+        width: 100% !important;
+    }
+
+    /* Form sections spacing */
+    .transaction-form h4 {
+        font-size: 15px;
+        margin: 20px 0 10px 0;
+    }
+}
+
+/* Landscape phone orientation */
+@media (max-width: 768px) and (orientation: landscape) {
+    .balance-container {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-around;
+    }
+
+    .balance-tile {
+        width: 45%;
+        min-width: 200px;
+    }
+
+    .transaction-buttons {
+        flex-direction: row;
+    }
+
+    .tab-button {
+        flex: 1;
+        margin: 0 5px;
+    }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+    /* This targets touch devices */
+    button, .tab-button, .balance-tile {
+        min-height: 44px; /* Apple's recommended touch target size */
+    }
+
+    .tab-button:active {
+        background-color: #0056b3;
+    }
+
+    .balance-tile:active {
+        transform: translateY(-2px);
+    }
+
+    /* Increase tap targets for form elements */
+    input, select, textarea {
+        min-height: 44px;
+        padding: 12px;
+    }
+}
 </style>
 <script type="application/json" id="bank-account-data">
     {
