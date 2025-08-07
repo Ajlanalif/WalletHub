@@ -27,6 +27,22 @@
                 </div>
             </a>
             {% endif %}
+
+             <!-- Receivable Tile - Only shows if user has active receivables -->
+            {% if active_receivables %}
+            <a href="{{ url_for('receivables') }}" class="balance-tile-link">
+                <div class="balance-tile receivable">
+                    <h3>Money Owed to You</h3>
+                    <p><strong>Total:</strong> {{ active_receivables_amount }}/=</p>
+                    <p class="tile-hint">{{ active_receivables|length }} receivable(s) active</p>
+                    {% if due_soon_receivables %}
+                    <div class="receivable-due-badge">{{ due_soon_receivables|length }} due soon</div>
+                    {% endif %}
+                </div>
+            </a>
+            {% endif %}
+
+
             <a href="{{ url_for('bank_transactions') }}" class="balance-tile-link">
                 <div class="balance-tile bank">
                     <h3>Bank Balance</h3>
@@ -393,6 +409,59 @@
             </div>
         </div>
     </div>
+    <!-- Receivable Modal -->
+<div id="receivableModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Record as Receivable</h3>
+            <span class="close-modal" id="receivableModalClose">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>You are recording this expense as money someone owes you.</p>
+            <p>Please enter the receivable details below:</p>
+
+            <form id="receivableForm" method="POST" action="{{ url_for('add_receivable') }}">
+                <input type="hidden" name="account_type" id="receivable_account_type">
+                <input type="hidden" name="bank_name" id="receivable_bank_name">
+                <input type="hidden" name="bank_acc_no" id="receivable_bank_acc_no">
+                <input type="hidden" name="mfs_name" id="receivable_mfs_name">
+                <input type="hidden" name="mfs_acc_no" id="receivable_mfs_acc_no">
+                
+                <div class="form-group">
+                    <label for="debtor_name">Debtor Name:</label>
+                    <input type="text" id="debtor_name" name="debtor_name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="receivable_amount">Receivable Amount:</label>
+                    <input type="number" id="receivable_amount" name="amount" step="0.01" required>
+                    <small>This is the amount someone owes you for this expense.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="expected_return_date">Expected Return Date:</label>
+                    <input type="date" id="expected_return_date" name="expected_return_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="interest_rate">Interest Rate (%):</label>
+                    <input type="number" id="interest_rate" name="interest_rate" step="0.01" value="0" min="0">
+                    <small>Optional: Interest rate per year</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="receivable_notes">Notes:</label>
+                    <textarea id="receivable_notes" name="notes" placeholder="Additional details about this receivable..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancelReceivableButton" class="cancel-button">Cancel</button>
+                    <button type="submit" class="submit-button">Record Receivable</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 </div>
 <script type="text/javascript">
     // This object will be populated by Jinja template
@@ -718,6 +787,28 @@
         font-weight: bold;
         margin-top: 5px;
     }
+    .receivable {
+    background-color: #17a2b8; /* Teal/cyan color for receivables */
+    box-shadow: 0 4px 10px rgba(23, 162, 184, 0.3);
+    border: 2px solid #138496;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.receivable:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+.receivable-due-badge {
+    display: inline-block;
+    background-color: #fff;
+    color: #17a2b8;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+    margin-top: 5px;
+}
     @media (max-width: 768px) {
     .master {
         margin: 10px;
@@ -893,6 +984,38 @@
         -webkit-appearance: none;
         appearance: none;
     }
+     .master {
+        margin: 10px;
+        padding: 20px;
+    }
+
+    /* Balance container - stack tiles vertically on mobile */
+    .balance-container {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        margin: 0 auto;
+        padding: 20px 0;
+    }
+
+    .balance-tile {
+        width: 100% !important;
+        margin: 15px 0;
+        box-sizing: border-box;
+    }
+
+    .balance-tile-link {
+        width: 100%;
+        display: block;
+        text-decoration: none;
+    }
+
+    /* Additional styling for receivable tile on mobile */
+    .receivable-due-badge {
+        font-size: 0.75em;
+        padding: 2px 6px;
+    }
 }
 
 /* Small mobile devices */
@@ -944,7 +1067,7 @@
     }
 
     /* Expense form button wrapper */
-    .submit-button, .loan-button {
+    .submit-button, .loan-button, .receivable-button  {
         font-size: 14px !important;
         padding: 10px 15px !important;
         margin: 5px 0 !important;
@@ -979,6 +1102,23 @@
         flex: 1;
         margin: 0 5px;
     }
+     .balance-container {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-around;
+    }
+
+    .balance-tile {
+        width: 45%;
+        min-width: 180px; /* Reduced to fit more tiles */
+        margin: 10px 2.5%;
+    }
+
+    /* If there are 3+ tiles (loan + receivable + others), use smaller tiles */
+    .balance-container:has(.loan):has(.receivable) .balance-tile {
+        width: 30%;
+        min-width: 150px;
+    }
 }
 
 /* Touch-friendly improvements */
@@ -1002,6 +1142,7 @@
         padding: 12px;
     }
 }
+
 </style>
 <script type="application/json" id="bank-account-data">
     {
@@ -1167,6 +1308,7 @@
             // Display the modal
             document.getElementById('loanModal').style.display = 'block';
         }
+
     
         // Universal function to update account numbers for both bank and MFS
         function updateAccountNumbers(selectElement, accountType) {
@@ -1267,6 +1409,41 @@
             alert(message);
         }
     
+        // Function to show receivable modal for any expense
+        function showReceivableModal(accountType, amount, category, date, description) {
+            // Populate the hidden form fields with expense details
+            document.getElementById('receivable_account_type').value = accountType;
+
+            // Set account-specific details
+            if (accountType === 'bank') {
+                document.getElementById('receivable_bank_name').value = document.querySelector('select[name="bank_name"]').value;
+                document.getElementById('receivable_bank_acc_no').value = document.querySelector('select[name="bank_acc_no"]').value;
+            } else if (accountType === 'mfs') {
+                document.getElementById('receivable_mfs_name').value = document.querySelector('select[name="mfs_name"]').value;
+                document.getElementById('receivable_mfs_acc_no').value = document.querySelector('select[name="mfs_acc_no"]').value;
+            }
+
+            // Set default receivable amount to the expense amount
+            document.getElementById('receivable_amount').value = amount.toFixed(2);
+
+            // Default expected return date to 30 days from now
+            const returnDate = new Date();
+            returnDate.setDate(returnDate.getDate() + 30);
+            document.getElementById('expected_return_date').value = returnDate.toISOString().split('T')[0];
+
+            // Clear the notes field
+            document.getElementById('receivable_notes').value = '';
+            
+            // Clear debtor name field
+            document.getElementById('debtor_name').value = '';
+            
+            // Set default interest rate to 0
+            document.getElementById('interest_rate').value = '0';
+
+            // Display the modal
+            document.getElementById('receivableModal').style.display = 'block';
+        }
+
         // Main initialization when DOM is loaded
         document.addEventListener('DOMContentLoaded', function () {
             console.log('DOM loaded, initializing app...');
@@ -1322,7 +1499,28 @@
                 if (e.target === loanModal) {
                     loanModal.style.display = 'none';
                 }
+                if (e.target === receivableModal) {
+                    receivableModal.style.display = 'none';
+                }
             });
+            
+            // Set up receivable modal functionality
+            const receivableModal = document.getElementById('receivableModal');
+            const receivableModalClose = document.getElementById('receivableModalClose');
+            const cancelReceivableButton = document.getElementById('cancelReceivableButton');
+    
+            // Add event listeners to close the receivable modal
+            if (receivableModalClose) {
+                receivableModalClose.addEventListener('click', function () {
+                    receivableModal.style.display = 'none';
+                });
+            }
+    
+            if (cancelReceivableButton) {
+                cancelReceivableButton.addEventListener('click', function () {
+                    receivableModal.style.display = 'none';
+                });
+            }
     
             // Add validation for loan amount form
             const loanForm = document.getElementById('loanForm');
@@ -1421,10 +1619,20 @@
                 loanButton.textContent = 'Record as Loan';
                 loanButton.className = 'loan-button';
                 loanButton.style.backgroundColor = '#dc3545';
+                loanButton.style.marginLeft = '10px';
                 
-                // Replace the original submit button with these two options
+                // Create a receivable button
+                const receivableButton = document.createElement('button');
+                receivableButton.type = 'button';
+                receivableButton.textContent = 'Record as Receivable';
+                receivableButton.className = 'receivable-button';
+                receivableButton.style.backgroundColor = '#28a745';
+                receivableButton.style.marginLeft = '10px';
+                
+                // Replace the original submit button with these three options
                 loanButtonWrapper.appendChild(normalSubmitButton);
                 loanButtonWrapper.appendChild(loanButton);
+                loanButtonWrapper.appendChild(receivableButton);
                 submitButton.parentNode.replaceChild(loanButtonWrapper, submitButton);
                 
                 // Add event listener for normal submission
@@ -1437,8 +1645,13 @@
                     handleExpenseSubmission(true);
                 });
                 
+                // Add event listener for receivable submission
+                receivableButton.addEventListener('click', function() {
+                    handleExpenseSubmission(false, true); // false for isLoan, true for isReceivable
+                });
+                
                 // Function to handle expense submission
-                function handleExpenseSubmission(asLoan) {
+                function handleExpenseSubmission(asLoan, asReceivable) {
                     const accountType = document.getElementById('expense_account_type').value;
                     const amount = parseFloat(document.getElementById('expense_amount').value);
                     const category = document.getElementById('expense_category').value;
@@ -1448,6 +1661,12 @@
                     // If recording as loan, show loan modal regardless of balance
                     if (asLoan) {
                         showLoanModal(accountType, amount, category, date, description, false);
+                        return;
+                    }
+                    
+                    // If recording as receivable, show receivable modal regardless of balance
+                    if (asReceivable) {
+                        showReceivableModal(accountType, amount, category, date, description);
                         return;
                     }
                     

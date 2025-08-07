@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
@@ -187,6 +187,42 @@ class LoanRepayment(db.Model):
     amount = db.Column(db.Double, nullable=False)
     date = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
     notes = db.Column(db.Text, nullable=True)
+
+class Receivable(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    debtor_name = db.Column(db.String(150), nullable=False)  # Person who owes you money
+    amount = db.Column(db.Double, nullable=False)  # Original amount lent
+    remaining_amount = db.Column(db.Double, nullable=False)  # Amount still owed
+    date_lent = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    expected_return_date = db.Column(db.Date, nullable=True)  # When you expect to get it back
+    is_received = db.Column(db.Boolean, default=False)  # Whether fully received
+    notes = db.Column(db.Text, nullable=True)
+    interest_rate = db.Column(db.Double, nullable=True, default=0.0)  # Optional interest rate
+    
+    # Relationship with user
+    user = db.relationship('User', backref=db.backref('receivables', lazy=True))
+    
+    # Related expense transaction (when you lent the money)
+    expense_transaction_id = db.Column(db.Integer, db.ForeignKey('transaction.id'), nullable=True)
+    expense_transaction = db.relationship('Transaction', foreign_keys=[expense_transaction_id])
+    
+    # Related received payments
+    payments = db.relationship('ReceivablePayment', backref='receivable', lazy=True)
+
+class ReceivablePayment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    receivable_id = db.Column(db.Integer, db.ForeignKey('receivable.id'), nullable=False)
+    amount = db.Column(db.Double, nullable=False)
+    date = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    notes = db.Column(db.Text, nullable=True)
+    
+    # Which account received the payment
+    received_to_type = db.Column(db.String(10), nullable=False)  # 'wallet', 'bank', or 'mfs'
+    received_to_bank_name = db.Column(db.String(150), nullable=True)
+    received_to_account_number = db.Column(db.String(50), nullable=True)
+    received_to_mfs_name = db.Column(db.String(150), nullable=True)
+    received_to_mfs_number = db.Column(db.String(50), nullable=True)
 
 @app.context_processor
 def inject_user_details():
@@ -528,6 +564,15 @@ def dashboard():
     today = date.today()
     due_soon_loans = [loan for loan in active_loans if (loan.return_date - today).days <= 7]
 
+    # Get active receivables information
+    active_receivables = Receivable.query.filter_by(user_id=current_user.id, is_received=False).all()
+    active_receivables_amount = round(sum(receivable.remaining_amount for receivable in active_receivables), 2)
+    
+    # Get receivables due soon (next 7 days)
+    due_soon_receivables = [receivable for receivable in active_receivables 
+                           if receivable.expected_return_date and (receivable.expected_return_date - today).days <= 7]
+
+
     return render_template('dashboard.html', 
                          total_balance=total_balance,
                          bank_balance=bank_balance, 
@@ -538,7 +583,10 @@ def dashboard():
                          today_date=date.today().strftime('%Y-%m-%d'),
                          active_loans=active_loans,
                          active_loans_amount=active_loans_amount,
-                         due_soon_loans=due_soon_loans)
+                         due_soon_loans=due_soon_loans,
+                         active_receivables=active_receivables,
+                         active_receivables_amount=active_receivables_amount,
+                         due_soon_receivables=due_soon_receivables)
 
 @app.route('/bank_transactions')
 @login_required
@@ -2273,6 +2321,403 @@ def contact():
     else:
         return render_template('contact.html')
     
+@app.route('/receivables')
+@login_required
+def receivables():
+    # Get all receivables for the current user
+    active_receivables = Receivable.query.filter_by(
+        user_id=current_user.id,
+        is_received=False
+    ).order_by(Receivable.expected_return_date).all()
+    
+    received_receivables = Receivable.query.filter_by(
+        user_id=current_user.id,
+        is_received=True
+    ).order_by(Receivable.date_lent.desc()).all()
+    
+    # Get wallet, bank, and MFS accounts for payment receiving
+    wallet = WalletBalance.query.filter_by(user_id=current_user.id).first()
+    bank_accounts = BankBalance.query.filter_by(user_id=current_user.id).all()
+    mfs_accounts = MFSBalance.query.filter_by(user_id=current_user.id).all()
+    
+    # Calculate totals
+    total_active_amount = sum(receivable.remaining_amount for receivable in active_receivables) if active_receivables else 0
+    total_received_amount = sum(receivable.amount for receivable in received_receivables) if received_receivables else 0
+    
+    # Calculate receivables due soon and overdue
+    today = date.today()
+    due_soon_amount = sum(receivable.remaining_amount for receivable in active_receivables 
+                         if receivable.expected_return_date and 0 < (receivable.expected_return_date - today).days <= 7)
+    overdue_amount = sum(receivable.remaining_amount for receivable in active_receivables 
+                        if receivable.expected_return_date and (receivable.expected_return_date - today).days <= 0)
+    
+    return render_template(
+        'receivables.html',
+        active_receivables=active_receivables,
+        received_receivables=received_receivables,
+        today=today,
+        total_receivables=total_active_amount,
+        due_soon=due_soon_amount,
+        overdue=overdue_amount,
+        total_active_amount=total_active_amount,
+        total_received_amount=total_received_amount,
+        wallet=wallet,
+        bank_accounts=bank_accounts,
+        mfs_accounts=mfs_accounts
+    )
+
+@app.route('/add_receivable', methods=['POST'])
+@login_required
+def add_receivable():
+    # Get receivable details
+    debtor_name = request.form.get('debtor_name')
+    amount = float(request.form.get('amount'))
+    expected_return_date_str = request.form.get('expected_return_date')
+    notes = request.form.get('notes', '')
+    interest_rate = float(request.form.get('interest_rate', 0))
+    account_type = request.form.get('account_type')
+    
+    # Convert date string to date object
+    expected_return_date = None
+    if expected_return_date_str:
+        expected_return_date = datetime.strptime(expected_return_date_str, '%Y-%m-%d').date()
+    
+    try:
+        # Create expense transaction (money going out)
+        timestamp = datetime.now()
+        
+        # Handle different account types
+        if account_type == 'wallet':
+            wallet = WalletBalance.query.filter_by(user_id=current_user.id).first()
+            if not wallet or wallet.balance < amount:
+                flash('Insufficient funds in your wallet', 'error')
+                return redirect(url_for('receivables'))
+            
+            wallet.balance -= amount
+            
+            expense_transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='expense',
+                amount=amount,
+                description=f"Lent money to {debtor_name}",
+                category="Receivable",
+                timestamp=timestamp,
+                source_type='wallet'
+            )
+            
+        elif account_type == 'bank':
+            bank_name = request.form.get('bank_name')
+            bank_acc_no = request.form.get('bank_acc_no')
+            
+            bank = BankBalance.query.filter_by(
+                user_id=current_user.id,
+                bank_name=bank_name,
+                account_number=bank_acc_no
+            ).first()
+            
+            if not bank:
+                flash('Bank account not found', 'error')
+                return redirect(url_for('receivables'))
+                
+            if bank.balance < amount:
+                flash('Insufficient funds in your bank account', 'error')
+                return redirect(url_for('receivables'))
+                
+            bank.balance -= amount
+            
+            expense_transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='expense',
+                amount=amount,
+                description=f"Lent money to {debtor_name}",
+                category="Receivable",
+                timestamp=timestamp,
+                source_type='bank',
+                source_bank_name=bank_name,
+                source_account_number=bank_acc_no
+            )
+            
+        elif account_type == 'mfs':
+            mfs_name = request.form.get('mfs_name')
+            mfs_acc_no = request.form.get('mfs_acc_no')
+            
+            mfs = MFSBalance.query.filter_by(
+                user_id=current_user.id,
+                mfs_name=mfs_name,
+                account_no=mfs_acc_no
+            ).first()
+            
+            if not mfs:
+                flash('MFS account not found', 'error')
+                return redirect(url_for('receivables'))
+                
+            if mfs.balance < amount:
+                flash('Insufficient funds in your MFS account', 'error')
+                return redirect(url_for('receivables'))
+                
+            mfs.balance -= amount
+            
+            expense_transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='expense',
+                amount=amount,
+                description=f"Lent money to {debtor_name}",
+                category="Receivable",
+                timestamp=timestamp,
+                source_type='mfs',
+                source_mfs_name=mfs_name,
+                source_mfs_number=mfs_acc_no
+            )
+        
+        db.session.add(expense_transaction)
+        db.session.flush()
+        
+        # Create the receivable record
+        receivable = Receivable(
+            user_id=current_user.id,
+            debtor_name=debtor_name,
+            amount=amount,
+            remaining_amount=amount,
+            date_lent=timestamp,
+            expected_return_date=expected_return_date,
+            notes=notes,
+            interest_rate=interest_rate,
+            expense_transaction_id=expense_transaction.id
+        )
+        
+        db.session.add(receivable)
+        db.session.commit()
+        
+        flash('Receivable added successfully', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error adding receivable: {str(e)}', 'error')
+    
+    return redirect(url_for('receivables'))
+
+@app.route('/receive_payment', methods=['POST'])
+@login_required
+def receive_payment():
+    receivable_id = request.form.get('receivable_id')
+    amount = float(request.form.get('amount'))
+    account_type = request.form.get('account_type')
+    notes = request.form.get('notes', '')
+    
+    # Find the receivable
+    receivable = Receivable.query.filter_by(
+        id=receivable_id,
+        user_id=current_user.id
+    ).first()
+    
+    if not receivable:
+        flash('Receivable not found', 'error')
+        return redirect(url_for('receivables'))
+    
+    if amount > receivable.remaining_amount:
+        flash('Payment amount cannot exceed the remaining receivable amount', 'error')
+        return redirect(url_for('receivables'))
+    
+    try:
+        # Create income transaction for the payment
+        timestamp = datetime.now()
+        
+        # Handle different account types
+        if account_type == 'wallet':
+            wallet = WalletBalance.query.filter_by(user_id=current_user.id).first()
+            if not wallet:
+                wallet = WalletBalance(user_id=current_user.id, balance=0)
+                db.session.add(wallet)
+            
+            wallet.balance += amount
+            
+            payment_transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='income',
+                amount=amount,
+                description=f"Payment received from {receivable.debtor_name}",
+                category="Receivable Payment",
+                timestamp=timestamp,
+                source_type='wallet'
+            )
+            
+            # Create payment record
+            payment = ReceivablePayment(
+                receivable_id=receivable.id,
+                amount=amount,
+                date=timestamp,
+                notes=notes,
+                received_to_type='wallet'
+            )
+            
+        elif account_type == 'bank':
+            bank_name = request.form.get('bank_name')
+            bank_acc_no = request.form.get('bank_acc_no')
+            
+            bank = BankBalance.query.filter_by(
+                user_id=current_user.id,
+                bank_name=bank_name,
+                account_number=bank_acc_no
+            ).first()
+            
+            if not bank:
+                flash('Bank account not found', 'error')
+                return redirect(url_for('receivables'))
+                
+            bank.balance += amount
+            
+            payment_transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='income',
+                amount=amount,
+                description=f"Payment received from {receivable.debtor_name}",
+                category="Receivable Payment",
+                timestamp=timestamp,
+                source_type='bank',
+                source_bank_name=bank_name,
+                source_account_number=bank_acc_no
+            )
+            
+            # Create payment record
+            payment = ReceivablePayment(
+                receivable_id=receivable.id,
+                amount=amount,
+                date=timestamp,
+                notes=notes,
+                received_to_type='bank',
+                received_to_bank_name=bank_name,
+                received_to_account_number=bank_acc_no
+            )
+            
+        elif account_type == 'mfs':
+            mfs_name = request.form.get('mfs_name')
+            mfs_acc_no = request.form.get('mfs_acc_no')
+            
+            mfs = MFSBalance.query.filter_by(
+                user_id=current_user.id,
+                mfs_name=mfs_name,
+                account_no=mfs_acc_no
+            ).first()
+            
+            if not mfs:
+                flash('MFS account not found', 'error')
+                return redirect(url_for('receivables'))
+                
+            mfs.balance += amount
+            
+            payment_transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='income',
+                amount=amount,
+                description=f"Payment received from {receivable.debtor_name}",
+                category="Receivable Payment",
+                timestamp=timestamp,
+                source_type='mfs',
+                source_mfs_name=mfs_name,
+                source_mfs_number=mfs_acc_no
+            )
+            
+            # Create payment record
+            payment = ReceivablePayment(
+                receivable_id=receivable.id,
+                amount=amount,
+                date=timestamp,
+                notes=notes,
+                received_to_type='mfs',
+                received_to_mfs_name=mfs_name,
+                received_to_mfs_number=mfs_acc_no
+            )
+        
+        db.session.add(payment_transaction)
+        db.session.add(payment)
+        
+        # Update receivable remaining amount
+        receivable.remaining_amount -= amount
+        
+        # Check if receivable is fully received
+        if receivable.remaining_amount <= 0:
+            receivable.is_received = True
+            receivable.remaining_amount = 0  # Ensure no negative values
+        
+        db.session.commit()
+        
+        flash('Payment received successfully', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error processing payment: {str(e)}', 'error')
+    
+    return redirect(url_for('receivables'))
+
+@app.route('/receivable_details/<int:receivable_id>')
+@login_required
+def receivable_details(receivable_id):
+    # Find the receivable
+    receivable = Receivable.query.filter_by(
+        id=receivable_id,
+        user_id=current_user.id
+    ).first_or_404()
+    
+    # Get all payments for this receivable
+    payments = ReceivablePayment.query.filter_by(receivable_id=receivable_id).order_by(ReceivablePayment.date.desc()).all()
+    
+    # Get original expense transaction if available
+    expense_transaction = None
+    if receivable.expense_transaction_id:
+        expense_transaction = Transaction.query.filter_by(id=receivable.expense_transaction_id).first()
+    
+    return render_template(
+        'receivable_details_partial.html',
+        receivable=receivable,
+        payments=payments,
+        expense_transaction=expense_transaction,
+        total_received=sum(payment.amount for payment in payments)
+    )
+
+@app.route('/api/receivable_details/<int:receivable_id>')
+@login_required
+def api_receivable_details(receivable_id):
+    # Find the receivable
+    receivable = Receivable.query.filter_by(
+        id=receivable_id,
+        user_id=current_user.id
+    ).first_or_404()
+    
+    # Get all payments for this receivable
+    payments = ReceivablePayment.query.filter_by(receivable_id=receivable_id).order_by(ReceivablePayment.date.desc()).all()
+    
+    # Determine status
+    today = date.today()
+    if receivable.is_received:
+        status = "Received"
+    elif receivable.expected_return_date and receivable.expected_return_date < today:
+        status = "Overdue"
+    elif receivable.expected_return_date and (receivable.expected_return_date - today).days <= 7:
+        status = "Due Soon"
+    else:
+        status = "Active"
+    
+    # Format payment data
+    payment_data = []
+    for payment in payments:
+        payment_data.append({
+            'date': payment.date.strftime('%Y-%m-%d'),
+            'amount': float(payment.amount),
+            'notes': payment.notes
+        })
+    
+    return jsonify({
+        'debtor_name': receivable.debtor_name,
+        'amount': float(receivable.amount),
+        'remaining_amount': float(receivable.remaining_amount),
+        'date_lent': receivable.date_lent.strftime('%Y-%m-%d'),
+        'expected_return_date': receivable.expected_return_date.strftime('%Y-%m-%d') if receivable.expected_return_date else None,
+        'interest_rate': float(receivable.interest_rate) if receivable.interest_rate else 0,
+        'notes': receivable.notes,
+        'status': status,
+        'payments': payment_data
+    })
+
 
 if __name__ == "__main__":
     with app.app_context():
