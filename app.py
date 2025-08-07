@@ -2373,6 +2373,7 @@ def add_receivable():
     debtor_name = request.form.get('debtor_name')
     amount = float(request.form.get('amount'))
     expected_return_date_str = request.form.get('expected_return_date')
+    date_lent_str = request.form.get('date_lent')  # Get the date lent from form
     notes = request.form.get('notes', '')
     interest_rate = float(request.form.get('interest_rate', 0))
     account_type = request.form.get('account_type')
@@ -2382,9 +2383,18 @@ def add_receivable():
     if expected_return_date_str:
         expected_return_date = datetime.strptime(expected_return_date_str, '%Y-%m-%d').date()
     
+    # Convert date lent string to datetime object
+    if date_lent_str:
+        date_lent = datetime.strptime(f"{date_lent_str} 12:00:00", '%Y-%m-%d %H:%M:%S')
+        # Use the date_lent for transaction timestamp as well
+        timestamp = date_lent
+    else:
+        date_lent = datetime.now()  # Use current time if no date specified
+        timestamp = date_lent
+    
     try:
         # Create expense transaction (money going out)
-        timestamp = datetime.now()
+        # Use the date_lent for the transaction timestamp
         
         # Handle different account types
         if account_type == 'wallet':
@@ -2478,7 +2488,7 @@ def add_receivable():
             debtor_name=debtor_name,
             amount=amount,
             remaining_amount=amount,
-            date_lent=timestamp,
+            date_lent=date_lent,  # Use the date_lent input from user
             expected_return_date=expected_return_date,
             notes=notes,
             interest_rate=interest_rate,
@@ -2503,6 +2513,13 @@ def receive_payment():
     amount = float(request.form.get('amount'))
     account_type = request.form.get('account_type')
     notes = request.form.get('notes', '')
+    payment_date_str = request.form.get('payment_date')  # Get payment date from form
+    
+    # Convert payment date string to datetime object
+    if payment_date_str:
+        timestamp = datetime.strptime(f"{payment_date_str} 12:00:00", '%Y-%m-%d %H:%M:%S')
+    else:
+        timestamp = datetime.now()  # Use current time if no date specified
     
     # Find the receivable
     receivable = Receivable.query.filter_by(
@@ -2519,8 +2536,7 @@ def receive_payment():
         return redirect(url_for('receivables'))
     
     try:
-        # Create income transaction for the payment
-        timestamp = datetime.now()
+        # Create income transaction for the payment (using the date you specify)
         
         # Handle different account types
         if account_type == 'wallet':
