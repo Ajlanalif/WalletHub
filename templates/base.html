@@ -45,14 +45,17 @@
                 
                 <li>
                     <div class="dropdown">
-                        <button class="dropbtn"
-                            style="background-color: black; border-radius: 10px; font-size: 15px; color: white;">
-                            {%if user_details.first_name or user_details.last_name%}
-                            {{ user_details.first_name }} {{ user_details.last_name }}
+                        <div class="dropbtn">
+                            {% if user_details and user_details.photo %}
+                                <img src="{{ url_for('static',filename='uploads/'+user_details.photo) }}" 
+                                    alt="Profile" 
+                                    style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
                             {% else %}
-                            {{ current_user.username }}
+                                <img src="{{ url_for('static', filename='uploads/default.webp') }}" 
+                                    alt="Default Profile" 
+                                    style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
                             {% endif %}
-                        </button>
+                        </div>
                         <div class="dropdown-content">
                             <a href="{{ url_for('profile') }}">Profile</a>
                             <a href="{{ url_for('loans') }}">Add-Loan</a>

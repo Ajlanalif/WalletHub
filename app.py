@@ -235,9 +235,7 @@ def inject_user_details():
 @app.route('/')
 def home():
     if current_user.is_authenticated:
-       
         return redirect(url_for('dashboard'))
-        
     return render_template('index.html')
 
 
@@ -296,7 +294,7 @@ def initial_user_setup():
             file_ext = photo.filename.rsplit('.', 1)[1].lower()
             filename = f"{current_user.username}.{file_ext}"
             photo.save(os.path.join(uploads_dir, filename))
-            photo_path = 'static/uploads/' + filename
+            photo_path = 'uploads/' + filename
         else:
             photo_path = None
 

@@ -14,7 +14,7 @@
                 <div class="profile-photo-section">
                     <div class="profile-photo">
                         {% if user_details.photo %}
-                            <img src="{{ url_for('static', filename=user_details.photo.replace('static/', '')) }}" alt="Profile Photo">
+                            <img src="{{ url_for('static', filename=('uploads/'+user_details.photo)) }}" alt="Profile Photo">
                         {% else %}
                             <img src="static/uploads/default.webp" alt="">
                         {% endif %}
@@ -121,7 +121,6 @@
                             <button type="submit" name="change_password" class="submit-button">Change Password</button>
                         </form>
                         <div class="danger-zone">
-                            <h3>Danger Zone</h3>
                             <div class="danger-container">
                                 <div class="danger-info">
                                     <h4>Delete Account</h4>
