@@ -6,10 +6,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mail import Mail, Message
 import secrets
 from itsdangerous import URLSafeTimedSerializer
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from io import BytesIO
 from flask_migrate import Migrate
 from datetime import date, datetime, timedelta
+from dotenv import load_dotenv
 import os
 
+
+load_dotenv()
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/wh'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -19,13 +29,23 @@ app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
 
 # Add these configurations after your existing app.config settings
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Change to your email provider
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'ajlan_alif@stud.cou.ac.bd'  # Your email
-app.config['MAIL_PASSWORD'] = '[REDACTED]'     # Your email app password
-app.config['MAIL_DEFAULT_SENDER'] = 'ajlan_alif@stud.cou.ac.bd'
-app.config['MAIL_ASCII_ATTACHMENTS'] = False 
+<<<<<<< HEAD
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', '587'))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+app.config['MAIL_ASCII_ATTACHMENTS'] = False
+=======
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', '587'))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+app.config['MAIL_ASCII_ATTACHMENTS'] = False
+>>>>>>> 367e1c6 (add transaction report pdf generation)
 
 # Initialize Flask-Mail
 mail = Mail(app)
@@ -2925,7 +2945,368 @@ def test_email():
         return "Test email sent successfully!"
     except Exception as e:
         return f"Email test failed: {str(e)}"
+
+@app.route('/generate_monthly_pdf')
+@login_required
+def generate_monthly_pdf():
+    # Get the requested month and year, default to current month
+    current_date = date.today()
+    year = request.args.get('year', current_date.year, type=int)
+    month = request.args.get('month', current_date.month, type=int)
     
+    # Create date range for the month
+    start_date = date(year, month, 1)
+    if month == 12:
+        end_date = date(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        end_date = date(year, month + 1, 1) - timedelta(days=1)
+    
+    month_name = start_date.strftime('%B %Y')
+    
+    # Create a BytesIO buffer to hold the PDF
+    buffer = BytesIO()
+    
+    # Create the PDF document
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=0.75*inch,
+        leftMargin=0.75*inch,
+        topMargin=1*inch,
+        bottomMargin=1*inch
+    )
+    
+    # Get styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.darkblue,
+        spaceAfter=30,
+        alignment=TA_CENTER
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.darkgreen,
+        spaceAfter=20,
+        spaceBefore=10
+    )
+    
+    # Container for the 'Flowable' objects
+    elements = []
+    
+    # Title
+    user_details = UserDetails.query.filter_by(user_id=current_user.id).first()
+    user_name = f"{user_details.first_name} {user_details.last_name}" if user_details else current_user.username
+    
+    title = Paragraph(f"Financial Report - {month_name}<br/>{user_name}", title_style)
+    elements.append(title)
+    elements.append(Spacer(1, 20))
+    
+    # PAGE 1: INCOME SUMMARY
+    elements.append(Paragraph("Income Summary", heading_style))
+    
+    # Get income transactions for the month
+    income_transactions = Transaction.query.filter(
+        Transaction.user_id == current_user.id,
+        Transaction.transaction_type == 'income',
+        func.date(Transaction.timestamp) >= start_date,
+        func.date(Transaction.timestamp) <= end_date
+    ).order_by(Transaction.source_type, Transaction.timestamp).all()
+    
+    if income_transactions:
+        # Group by source_type
+        income_data = {}
+        total_income = 0
+        
+        for transaction in income_transactions:
+            account_name = get_account_display_name(transaction, 'source')
+            if account_name not in income_data:
+                income_data[account_name] = []
+            
+            income_data[account_name].append({
+                'amount': transaction.amount,
+                'category': transaction.category or 'Uncategorized',
+                'date': transaction.timestamp.strftime('%Y-%m-%d')
+            })
+            total_income += transaction.amount
+        
+        # Create income table
+        income_table_data = [['Account', 'Date', 'Source', 'Amount (৳)']]
+        
+        for account_name, transactions in income_data.items():
+            for trans in transactions:
+                income_table_data.append([
+                    account_name,
+                    trans['date'],
+                    trans['category'],
+                    f"{trans['amount']:.2f}"
+                ])
+        
+        # Add total row
+        income_table_data.append(['', '', 'TOTAL INCOME', f"{total_income:.2f}"])
+        
+        income_table = Table(income_table_data, colWidths=[2*inch, 1.5*inch, 2*inch, 1.5*inch])
+        income_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightgreen),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+        ]))
+        
+        elements.append(income_table)
+    else:
+        elements.append(Paragraph("No income transactions found for this period.", styles['Normal']))
+    
+    # PAGE BREAK
+    elements.append(PageBreak())
+    
+    # PAGE 2: EXPENSE SUMMARY
+    elements.append(Paragraph("Expense Summary", heading_style))
+    
+    # Get expense transactions for the month
+    expense_transactions = Transaction.query.filter(
+        Transaction.user_id == current_user.id,
+        Transaction.transaction_type == 'expense',
+        func.date(Transaction.timestamp) >= start_date,
+        func.date(Transaction.timestamp) <= end_date
+    ).order_by(Transaction.source_type, Transaction.timestamp).all()
+    
+    if expense_transactions:
+        # Group by source_type
+        expense_data = {}
+        total_expense = 0
+        
+        for transaction in expense_transactions:
+            account_name = get_account_display_name(transaction, 'source')
+            if account_name not in expense_data:
+                expense_data[account_name] = []
+            
+            expense_data[account_name].append({
+                'amount': transaction.amount,
+                'category': transaction.category or 'Uncategorized',
+                'date': transaction.timestamp.strftime('%Y-%m-%d')
+            })
+            total_expense += transaction.amount
+        
+        # Create expense table
+        expense_table_data = [['Account', 'Date', 'Category', 'Amount (৳)']]
+        
+        for account_name, transactions in expense_data.items():
+            for trans in transactions:
+                expense_table_data.append([
+                    account_name,
+                    trans['date'],
+                    trans['category'],
+                    f"{trans['amount']:.2f}"
+                ])
+        
+        # Add total row
+        expense_table_data.append(['', '', 'TOTAL EXPENSE', f"{total_expense:.2f}"])
+        
+        expense_table = Table(expense_table_data, colWidths=[2*inch, 1.5*inch, 2*inch, 1.5*inch])
+        expense_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkred),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightcoral),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+        ]))
+        
+        elements.append(expense_table)
+    else:
+        elements.append(Paragraph("No expense transactions found for this period.", styles['Normal']))
+    
+    # PAGE BREAK
+    elements.append(PageBreak())
+    
+    # PAGE 3: RECEIVABLES SUMMARY
+    elements.append(Paragraph("Receivables Summary", heading_style))
+    
+    # Get receivables that were created in this month or have payments in this month
+    receivables = Receivable.query.filter(
+        Receivable.user_id == current_user.id,
+        db.or_(
+            func.date(Receivable.date_lent) >= start_date,
+            func.date(Receivable.date_lent) <= end_date
+        )
+    ).order_by(Receivable.date_lent).all()
+    
+    if receivables:
+        receivable_table_data = [['Account', 'Amount (৳)', 'Debtor Name', 'Return Date', 'Status']]
+        total_receivables = 0
+        
+        for receivable in receivables:
+            # Get account info from the related expense transaction
+            account_name = 'Unknown'
+            if receivable.expense_transaction_id:
+                expense_trans = Transaction.query.get(receivable.expense_transaction_id)
+                if expense_trans:
+                    account_name = get_account_display_name(expense_trans, 'source')
+            
+            status = 'Received' if receivable.is_received else 'Pending'
+            return_date = receivable.expected_return_date.strftime('%Y-%m-%d') if receivable.expected_return_date else 'Not Set'
+            
+            receivable_table_data.append([
+                account_name,
+                f"{receivable.amount:.2f}",
+                receivable.debtor_name,
+                return_date,
+                status
+            ])
+            total_receivables += receivable.amount
+        
+        # Add total row
+        receivable_table_data.append(['', f"{total_receivables:.2f}", 'TOTAL RECEIVABLES', '', ''])
+        
+        receivable_table = Table(receivable_table_data, colWidths=[1.5*inch, 1.3*inch, 1.8*inch, 1.3*inch, 1.1*inch])
+        receivable_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkorange),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightyellow),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ]))
+        
+        elements.append(receivable_table)
+    else:
+        elements.append(Paragraph("No receivables found for this period.", styles['Normal']))
+    
+    # PAGE BREAK
+    elements.append(PageBreak())
+    
+    # PAGE 4: LOANS SUMMARY
+    elements.append(Paragraph("Loans Summary", heading_style))
+    
+    # Get loans that were taken in this month
+    loans = Loan.query.filter(
+        Loan.user_id == current_user.id,
+        func.date(Loan.date_taken) >= start_date,
+        func.date(Loan.date_taken) <= end_date
+    ).order_by(Loan.date_taken).all()
+    
+    if loans:
+        loan_table_data = [['Account', 'Amount (৳)', 'Lender Name', 'Return Date', 'Status']]
+        total_loans = 0
+        
+        for loan in loans:
+            # Find the income transaction for this loan
+            account_name = 'Unknown'
+            income_trans = Transaction.query.filter(
+                Transaction.user_id == current_user.id,
+                Transaction.transaction_type == 'income',
+                Transaction.category == 'Loan',
+                Transaction.description.contains(loan.lender_name)
+            ).first()
+            
+            if income_trans:
+                account_name = get_account_display_name(income_trans, 'source')
+            
+            status = 'Repaid' if loan.is_repaid else 'Active'
+            return_date = loan.return_date.strftime('%Y-%m-%d')
+            
+            loan_table_data.append([
+                account_name,
+                f"{loan.amount:.2f}",
+                loan.lender_name,
+                return_date,
+                status
+            ])
+            total_loans += loan.amount
+        
+        # Add total row
+        loan_table_data.append(['', f"{total_loans:.2f}", 'TOTAL LOANS', '', ''])
+        
+        loan_table = Table(loan_table_data, colWidths=[1.5*inch, 1.3*inch, 1.8*inch, 1.3*inch, 1.1*inch])
+        loan_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkviolet),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lavender),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ]))
+        
+        elements.append(loan_table)
+    else:
+        elements.append(Paragraph("No loans found for this period.", styles['Normal']))
+    
+    # Add summary footer
+    elements.append(Spacer(1, 30))
+    summary_style = ParagraphStyle(
+        'Summary',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.grey,
+        alignment=TA_CENTER
+    )
+    
+    summary_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>WalletHub Financial Management System"
+    elements.append(Paragraph(summary_text, summary_style))
+    
+    # Build the PDF
+    doc.build(elements)
+    
+    # Get the value of the BytesIO buffer and return it as response
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    # Create response
+    response = app.response_class(
+        pdf,
+        mimetype='application/pdf'
+    )
+    response.headers['Content-Disposition'] = f'attachment; filename=financial_report_{month_name.replace(" ", "_")}.pdf'
+    
+    return response
+
+def get_account_display_name(transaction, account_type):
+    """Helper function to get display name for accounts"""
+    if account_type == 'source':
+        if transaction.source_type == 'wallet':
+            return 'Cash Wallet'
+        elif transaction.source_type == 'bank':
+            return f"{transaction.source_bank_name} - {transaction.source_account_number}"
+        elif transaction.source_type == 'mfs':
+            return f"{transaction.source_mfs_name} - {transaction.source_mfs_number}"
+    elif account_type == 'destination':
+        if transaction.destination_type == 'wallet':
+            return 'Cash Wallet'
+        elif transaction.destination_type == 'bank':
+            return f"{transaction.destination_bank_name} - {transaction.destination_account_number}"
+        elif transaction.destination_type == 'mfs':
+            return f"{transaction.destination_mfs_name} - {transaction.destination_mfs_number}"
+    
+    return 'Unknown Account'
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

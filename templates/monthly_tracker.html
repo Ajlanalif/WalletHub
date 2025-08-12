@@ -30,6 +30,21 @@
             </form>
             
             <a href="{{ url_for('monthly_tracker', year=next_year, month=next_month) }}" class="nav-button">Next Month &gt;</a>
+             <a href="{{ url_for('monthly_tracker', year=prev_year, month=prev_month) }}" class="nav-btn">
+        <i class="fas fa-chevron-left"></i> Previous Month
+    </a>
+    
+    <h2>{{ month_name }}</h2>
+    
+    <a href="{{ url_for('monthly_tracker', year=next_year, month=next_month) }}" class="nav-btn">
+        Next Month <i class="fas fa-chevron-right"></i>
+    </a>
+    
+    <!-- Add PDF generation button -->
+    <a href="{{ url_for('generate_monthly_pdf', year=year, month=month) }}" 
+       class="pdf-btn" target="_blank">
+        <i class="fas fa-file-pdf"></i> Generate PDF Report
+    </a>
         </div>
         
         <div class="current-month">
@@ -135,6 +150,8 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
     }
     
     .month-selector {
@@ -278,6 +295,31 @@
         font-style: italic;
         padding: 30px 0;
     }
+    .pdf-btn {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    padding: 12px 20px;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    .pdf-btn:hover {
+        background: linear-gradient(135deg, #c0392b, #a93226);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .pdf-btn i {
+        font-size: 16px;
+    }
     
     @media (max-width: 768px) {
         .category-charts {
@@ -286,6 +328,15 @@
         
         .summary-cards {
             flex-direction: column;
+        }
+        .month-navigation {
+        flex-direction: column;
+        text-align: center;
+        }
+        
+        .pdf-btn {
+            order: -1;
+            margin-bottom: 15px;
         }
     }
 </style>

@@ -1,5 +1,6 @@
 alembic==1.12.1
 blinker==1.6.3
+charset-normalizer==3.4.3
 click==8.1.8
 colorama==0.4.6
 Flask==2.2.5
@@ -14,7 +15,10 @@ itsdangerous==2.1.2
 Jinja2==3.1.6
 Mako==1.2.4
 MarkupSafe==2.1.5
+Pillow==9.5.0
 PyMySQL==1.1.1
+python-dotenv==1.1.1
+reportlab==4.4.3
 SQLAlchemy==2.0.43
 typing_extensions==4.7.1
 Werkzeug==2.2.3

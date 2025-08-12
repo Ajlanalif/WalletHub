@@ -30,6 +30,7 @@ instance/
 # Environment variables
 .env
 .venv
+nvenv/
 env/
 venv/
 ENV/
