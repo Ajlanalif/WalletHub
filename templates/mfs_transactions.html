@@ -11,7 +11,7 @@
 
     <div class="mfs-info">
         <div class="balance-summary">
-            <h2>Total MFS Balance: <span>{{ mfs_balance }}/=</span></h2>
+            <h2>Total MFS Balance: <span>{{ "%.2f"|format(mfs_balance) }}/=</span></h2>
         </div>
 
 
@@ -27,7 +27,7 @@
                 <div class="account-card">
                     <div class="account-name">{{ mfs.mfs_name }}</div>
                     <div class="account-number">A/C: {{ mfs.account_no }}</div>
-                    <div class="account-balance">{{ mfs.balance }}/=</div>
+                    <div class="account-balance">{{ "%.2f"|format(mfs.balance) }}/=</div>
                 </div>
                 {% endfor %}
             </div>

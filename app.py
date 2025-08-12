@@ -687,7 +687,7 @@ def add_bank_account():
 def mfs_transactions():
     # Get all MFS accounts and total balance
     mfs_accounts = MFSBalance.query.filter_by(user_id=current_user.id).all()
-    mfs_balance = sum(mfs.balance for mfs in mfs_accounts)
+    mfs_balance = round(sum(mfs.balance for mfs in mfs_accounts),2)
     
     # Build the query for transactions - INCLUDE RECEIVED TRANSFERS
     query = Transaction.query.filter(
@@ -1194,9 +1194,9 @@ def monthly_tracker():
         expense_by_category[category] += expense.amount
     
     # Calculate totals
-    total_income = sum(income.amount for income in incomes)
-    total_expense = sum(expense.amount for expense in expenses)
-    net_amount = total_income - total_expense
+    total_income = round(sum(income.amount for income in incomes),2)
+    total_expense = round(sum(expense.amount for expense in expenses),2)
+    net_amount = round(total_income - total_expense,2)
     
     # For navigation between months
     prev_month = month - 1 if month > 1 else 12

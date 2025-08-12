@@ -11,7 +11,7 @@
 
     <div class="wallet-info">
         <div class="balance-summary">
-            <h2>Current Balance: <span>{{ wallet_balance }}/=</span></h2>
+            <h2>Current Balance: <span>{{ "%.2f"|format(wallet_balance) }}/=</span></h2>
         </div>
     </div>
 

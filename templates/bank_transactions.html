@@ -11,7 +11,7 @@
 
     <div class="bank-info">
         <div class="balance-summary">
-            <h2>Total Bank Balance: <span>{{ bank_balance }}/=</span></h2>
+            <h2>Total Bank Balance: <span>{{ "%.2f"|format(bank_balance) }}/=</span></h2>
         </div>
         
         <div class="accounts-list">
@@ -26,7 +26,7 @@
                 <div class="account-card">
                     <div class="account-name">{{ bank.bank_name }}</div>
                     <div class="account-number">A/C: {{ bank.account_number }}</div>
-                    <div class="account-balance">{{ bank.balance }}/=</div>
+                    <div class="account-balance">{{ "%.2f"|format(bank.balance) }}/=</div>
                 </div>
                 {% endfor %}
             </div>
