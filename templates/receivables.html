@@ -66,7 +66,18 @@
                         </td>
                         <td class="actions">
                             <button class="receive-button" data-receivable-id="{{ receivable.id }}" data-remaining="{{ receivable.remaining_amount }}">Receive Payment</button>
-                            <button class="view-button" data-receivable-id="{{ receivable.id }}">Details</button>
+                            <button class="view-button" 
+                                    data-receivable-id="{{ receivable.id }}"
+                                    data-debtor-name="{{ receivable.debtor_name }}"
+                                    data-amount="{{ receivable.amount }}"
+                                    data-remaining="{{ receivable.remaining_amount }}"
+                                    data-date-lent="{{ receivable.date_lent.strftime('%Y-%m-%d') }}"
+                                    data-expected-date="{{ receivable.expected_return_date.strftime('%Y-%m-%d') if receivable.expected_return_date else '' }}"
+                                    data-interest-rate="{{ receivable.interest_rate or 0 }}"
+                                    data-notes="{{ receivable.notes or '' }}"
+                                    data-status="{% if receivable.is_received %}Received{% elif receivable.expected_return_date and receivable.expected_return_date < today %}Overdue{% elif receivable.expected_return_date and (receivable.expected_return_date - today).days <= 7 %}Due Soon{% else %}Active{% endif %}">
+                                Details
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -104,7 +115,18 @@
                             {% endif %}
                         </td>
                         <td class="actions">
-                            <button class="view-button" data-receivable-id="{{ receivable.id }}">Details</button>
+                            <button class="view-button" 
+                                    data-receivable-id="{{ receivable.id }}"
+                                    data-debtor-name="{{ receivable.debtor_name }}"
+                                    data-amount="{{ receivable.amount }}"
+                                    data-remaining="{{ receivable.remaining_amount }}"
+                                    data-date-lent="{{ receivable.date_lent.strftime('%Y-%m-%d') }}"
+                                    data-expected-date="{{ receivable.expected_return_date.strftime('%Y-%m-%d') if receivable.expected_return_date else '' }}"
+                                    data-interest-rate="{{ receivable.interest_rate or 0 }}"
+                                    data-notes="{{ receivable.notes or '' }}"
+                                    data-status="Received">
+                                Details
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -115,93 +137,98 @@
     </div>
     
     <!-- New Receivable Modal -->
-    <div id="newReceivableModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add New Receivable</h3>
-                <span class="close-modal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form method="POST" action="{{ url_for('add_receivable') }}">
-                    <div class="form-group">
-                        <label for="debtor_name">Debtor Name:</label>
-                        <input type="text" id="debtor_name" name="debtor_name" required>
-                    </div>
+    <!-- New Receivable Modal - Following loans.html structure -->
+<div id="newReceivableModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Receivable</h3>
+            <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form method="POST" action="{{ url_for('add_receivable') }}">
+                <div class="form-group">
+                    <label for="new_debtor_name">Debtor Name:</label>
+                    <input type="text" id="new_debtor_name" name="debtor_name" list="debtor_names" required>
+                    <datalist id="debtor_names">
+                        {% for debtor in existing_debtors %}
+                        <option value="{{ debtor }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
+                
+                <div class="form-group">
+                    <label for="new_receivable_amount">Receivable Amount:</label>
+                    <input type="number" id="new_receivable_amount" name="amount" step="0.01" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="new_receivable_account_type">Payment Source (where you paid from):</label>
+                    <select id="new_receivable_account_type" name="account_type" onchange="toggleNewReceivableFields()" required>
+                        <option value="">Select Account Type</option>
+                        <option value="wallet">Cash</option>
+                        <option value="bank">Bank</option>
+                        <option value="mfs">MFS</option>
+                    </select>
+                </div>
+                
+                <div id="new_receivable_bank_fields" class="form-group hidden">
+                    <label for="new_receivable_bank_name">Bank Name:</label>
+                    <select id="new_receivable_bank_name" name="bank_name">
+                        <option value="">Select Bank</option>
+                        {% for bank in bank_accounts|map(attribute='bank_name')|unique %}
+                        <option value="{{ bank }}">{{ bank }}</option>
+                        {% endfor %}
+                    </select>
                     
-                    <div class="form-group">
-                        <label for="amount">Amount:</label>
-                        <input type="number" id="amount" name="amount" step="0.01" required>
-                    </div>
+                    <label for="new_receivable_bank_acc_no">Account Number:</label>
+                    <select id="new_receivable_bank_acc_no" name="bank_acc_no">
+                        <option value="">Select Account</option>
+                    </select>
+                </div>
+                
+                <div id="new_receivable_mfs_fields" class="form-group hidden">
+                    <label for="new_receivable_mfs_name">MFS Name:</label>
+                    <select id="new_receivable_mfs_name" name="mfs_name">
+                        <option value="">Select MFS</option>
+                        {% for mfs in mfs_accounts|map(attribute='mfs_name')|unique %}
+                        <option value="{{ mfs }}">{{ mfs }}</option>
+                        {% endfor %}
+                    </select>
                     
-                    <div class="form-group">
-                        <label for="account_type">Payment Source (where you paid from):</label>
-                        <select id="new_receivable_account_type" name="account_type" onchange="toggleNewReceivableFields()" required>
-                            <option value="">Select Account Type</option>
-                            <option value="wallet">Cash</option>
-                            <option value="bank">Bank</option>
-                            <option value="mfs">MFS</option>
-                        </select>
-                    </div>
-                    
-                    <div id="new_receivable_bank_fields" class="form-group hidden">
-                        <label for="new_receivable_bank_name">Bank Name:</label>
-                        <select id="new_receivable_bank_name" name="bank_name">
-                            <option value="">Select Bank</option>
-                            {% for bank in bank_accounts|map(attribute='bank_name')|unique %}
-                            <option value="{{ bank }}">{{ bank }}</option>
-                            {% endfor %}
-                        </select>
-                        
-                        <label for="new_receivable_bank_acc_no">Account Number:</label>
-                        <select id="new_receivable_bank_acc_no" name="bank_acc_no">
-                            <option value="">Select Account</option>
-                        </select>
-                    </div>
-                    
-                    <div id="new_receivable_mfs_fields" class="form-group hidden">
-                        <label for="new_receivable_mfs_name">MFS Name:</label>
-                        <select id="new_receivable_mfs_name" name="mfs_name">
-                            <option value="">Select MFS</option>
-                            {% for mfs in mfs_accounts|map(attribute='mfs_name')|unique %}
-                            <option value="{{ mfs }}">{{ mfs }}</option>
-                            {% endfor %}
-                        </select>
-                        
-                        <label for="new_receivable_mfs_acc_no">Account Number:</label>
-                        <select id="new_receivable_mfs_acc_no" name="mfs_acc_no">
-                            <option value="">Select Account</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="date_lent">Date Lent:</label>
-                        <input type="date" id="date_lent" name="date_lent" required>
-                        <small>The date when you actually lent the money</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="expected_return_date">Expected Return Date:</label>
-                        <input type="date" id="expected_return_date" name="expected_return_date">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="interest_rate">Interest Rate (% per year):</label>
-                        <input type="number" id="interest_rate" name="interest_rate" step="0.01" value="0">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="notes">Notes:</label>
-                        <textarea id="notes" name="notes" placeholder="Additional details..."></textarea>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="cancel-button">Cancel</button>
-                        <button type="submit" class="submit-button">Add Receivable</button>
-                    </div>
-                </form>
-            </div>
+                    <label for="new_receivable_mfs_acc_no">Account Number:</label>
+                    <select id="new_receivable_mfs_acc_no" name="mfs_acc_no">
+                        <option value="">Select Account</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="new_date_lent">Date Lent:</label>
+                    <input type="date" id="new_date_lent" name="date_lent" value="{{ today.strftime('%Y-%m-%d') }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="new_expected_return_date">Expected Return Date:</label>
+                    <input type="date" id="new_expected_return_date" name="expected_return_date">
+                </div>
+                
+                <div class="form-group">
+                    <label for="new_interest_rate">Interest Rate (% per year):</label>
+                    <input type="number" id="new_interest_rate" name="interest_rate" step="0.01" value="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="new_receivable_notes">Notes:</label>
+                    <textarea id="new_receivable_notes" name="notes"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="cancel-button">Cancel</button>
+                    <button type="submit" class="submit-button">Add Receivable</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
     
     <!-- Receive Payment Modal -->
     <div id="receiveModal" class="modal">
@@ -295,12 +322,12 @@
                     
                     <div class="detail-group">
                         <label>Original Amount:</label>
-                        <span id="detail-amount"></span><span>/=</span>
+                        <span id="detail-amount"></span>/=
                     </div>
                     
                     <div class="detail-group">
                         <label>Remaining Amount:</label>
-                        <span id="detail-remaining"></span><span>/=</span>
+                        <span id="detail-remaining"></span>/=
                     </div>
                     
                     <div class="detail-group">
@@ -315,7 +342,7 @@
                     
                     <div class="detail-group">
                         <label>Interest Rate:</label>
-                        <span id="detail-interest-rate"></span><span>% per year</span>
+                        <span id="detail-interest-rate"></span>% per year
                     </div>
                     
                     <div class="detail-group">
@@ -331,7 +358,7 @@
                     <div id="payment-history" class="payment-history">
                         <h4>Payment History</h4>
                         <div id="payment-list">
-                            <!-- Payment history will be loaded here -->
+                            <!-- Payment history will still be loaded via AJAX for now -->
                         </div>
                     </div>
                 </div>
@@ -743,159 +770,48 @@
         }
     }
 </style>
+<script type="application/json" id="bank-account-data">
+{
+    {% for bank_name in bank_accounts|map(attribute='bank_name')|unique %}
+    "{{ bank_name }}": [
+        {% for bank in bank_accounts if bank.bank_name == bank_name %}
+        {% if not loop.first %},{% endif %}
+        {
+            "number": "{{ bank.account_number }}",
+            "display": "{{ bank.account_number }}",
+            "balance": {{ bank.balance }}
+        }
+        {% endfor %}
+    ]{% if not loop.last %},{% endif %}
+    {% endfor %}
+}
+</script>
+
+<script type="application/json" id="mfs-account-data">
+{
+    {% for mfs_name in mfs_accounts|map(attribute='mfs_name')|unique %}
+    "{{ mfs_name }}": [
+        {% for mfs in mfs_accounts if mfs.mfs_name == mfs_name %}
+        {% if not loop.first %},{% endif %}
+        {
+            "number": "{{ mfs.account_no }}",
+            "display": "{{ mfs.account_no }}",
+            "balance": {{ mfs.balance }}
+        }
+        {% endfor %}
+    ]{% if not loop.last %},{% endif %}
+    {% endfor %}
+}
+</script>
 
 <script>
-    // Account data for dynamic selects
+    // Define account data object
     window.ACCOUNT_DATA = {
         bankAccounts: {},
         mfsAccounts: {}
     };
-    
-    // Parse account data from backend
-    {% if bank_accounts %}
-    window.ACCOUNT_DATA.bankAccounts = {
-        {% for bank_name in bank_accounts|map(attribute='bank_name')|unique %}
-        "{{ bank_name }}": [
-            {% for bank in bank_accounts if bank.bank_name == bank_name %}
-            {% if not loop.first %},{% endif %}
-            {
-                "number": "{{ bank.account_number }}",
-                "display": "{{ bank.account_number }}",
-                "balance": {{ bank.balance }}
-            }
-            {% endfor %}
-        ]{% if not loop.last %},{% endif %}
-        {% endfor %}
-    };
-    {% endif %}
-    
-    {% if mfs_accounts %}
-    window.ACCOUNT_DATA.mfsAccounts = {
-        {% for mfs_name in mfs_accounts|map(attribute='mfs_name')|unique %}
-        "{{ mfs_name }}": [
-            {% for mfs in mfs_accounts if mfs.mfs_name == mfs_name %}
-            {% if not loop.first %},{% endif %}
-            {
-                "number": "{{ mfs.account_no }}",
-                "display": "{{ mfs.account_no }}",
-                "balance": {{ mfs.balance }}
-            }
-            {% endfor %}
-        ]{% if not loop.last %},{% endif %}
-        {% endfor %}
-    };
-    {% endif %}
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        // Modal elements
-        const newReceivableModal = document.getElementById('newReceivableModal');
-        const receiveModal = document.getElementById('receiveModal');
-        const detailsModal = document.getElementById('detailsModal');
-        const openNewReceivableBtn = document.getElementById('openNewReceivableBtn');
-        
-        // Open new receivable modal
-        if (openNewReceivableBtn) {
-            openNewReceivableBtn.addEventListener('click', function() {
-                newReceivableModal.style.display = 'block';
-            });
-        }
-        
-        // Open receive payment modals
-        document.querySelectorAll('.receive-button').forEach(button => {
-            button.addEventListener('click', function() {
-                const receivableId = this.getAttribute('data-receivable-id');
-                const remaining = this.getAttribute('data-remaining');
-                
-                document.getElementById('receive_receivable_id').value = receivableId;
-                document.getElementById('receive_amount').value = remaining;
-                document.getElementById('outstanding_amount').textContent = remaining;
-                
-                receiveModal.style.display = 'block';
-            });
-        });
-        
-        // Open details modal
-        document.querySelectorAll('.view-button').forEach(button => {
-            button.addEventListener('click', function() {
-                const receivableId = this.getAttribute('data-receivable-id');
-                showReceivableDetails(receivableId);
-            });
-        });
-        
-        // Close modals
-        document.querySelectorAll('.close-modal, .cancel-button').forEach(element => {
-            element.addEventListener('click', function() {
-                this.closest('.modal').style.display = 'none';
-            });
-        });
-        
-        // Close modal when clicking outside
-        window.addEventListener('click', function(e) {
-            if (e.target.classList.contains('modal')) {
-                e.target.style.display = 'none';
-            }
-        });
-        
-        // Initialize Select2 if available
-        if (typeof $ !== 'undefined' && $.fn.select2) {
-            $('select').select2({
-                width: '100%'
-            });
-        }
-    });
-    
-    // Function to show receivable details
-    function showReceivableDetails(receivableId) {
-        // Fetch receivable details via AJAX
-        fetch(`/api/receivable_details/${receivableId}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Populate the details modal
-                document.getElementById('detail-debtor-name').textContent = data.debtor_name;
-                document.getElementById('detail-amount').textContent = data.amount;
-                document.getElementById('detail-remaining').textContent = data.remaining_amount;
-                document.getElementById('detail-date-lent').textContent = data.date_lent;
-                document.getElementById('detail-expected-date').textContent = data.expected_return_date || 'Not specified';
-                document.getElementById('detail-interest-rate').textContent = data.interest_rate || '0';
-                document.getElementById('detail-notes').textContent = data.notes || 'No notes';
-                document.getElementById('detail-status').textContent = data.status;
-                
-                // Populate payment history
-                const paymentList = document.getElementById('payment-list');
-                paymentList.innerHTML = '';
-                
-                if (data.payments && data.payments.length > 0) {
-                    data.payments.forEach(payment => {
-                        const paymentItem = document.createElement('div');
-                        paymentItem.className = 'payment-item';
-                        paymentItem.innerHTML = `
-                            <div>
-                                <span class="payment-date">${payment.date}</span>
-                                ${payment.notes ? ` - ${payment.notes}` : ''}
-                            </div>
-                            <span class="payment-amount">${payment.amount}/=</span>
-                        `;
-                        paymentList.appendChild(paymentItem);
-                    });
-                } else {
-                    paymentList.innerHTML = '<p>No payments received yet.</p>';
-                }
-                
-                // Show the modal
-                document.getElementById('detailsModal').style.display = 'block';
-            })
-            .catch(error => {
-                console.error('Error fetching receivable details:', error);
-                alert('Error loading receivable details. Please try again.');
-            });
-    }
-    
-    // Toggle fields based on account type selection
+
+    // Functions to toggle form fields
     function toggleNewReceivableFields() {
         const accountType = document.getElementById('new_receivable_account_type').value;
         const bankFields = document.getElementById('new_receivable_bank_fields');
@@ -929,47 +845,305 @@
             mfsFields.classList.add('hidden');
         }
     }
-    
-    // Update account numbers when bank/MFS is selected
+
+    // Universal function to update account numbers for both bank and MFS
     function updateAccountNumbers(selectElement, accountType) {
         const name = selectElement.value;
-        const form = selectElement.closest('form');
-        let accNoSelect;
-        
-        if (accountType === 'bank') {
-            accNoSelect = form.querySelector('select[name*="bank_acc_no"]');
-        } else if (accountType === 'mfs') {
-            accNoSelect = form.querySelector('select[name*="mfs_acc_no"]');
+        if (!name) {
+            console.warn(`No ${accountType} name selected`);
+            return;
         }
         
-        if (accNoSelect) {
-            // Clear existing options
-            accNoSelect.innerHTML = '<option value="">Select Account</option>';
-            
-            // Add new options
-            const accounts = accountType === 'bank' 
-                ? window.ACCOUNT_DATA.bankAccounts[name] 
-                : window.ACCOUNT_DATA.mfsAccounts[name];
+        console.log(`Updating ${accountType} accounts for: ${name}`);
+        
+        // Find the corresponding account number select
+        let accNoSelect;
+        const selectId = selectElement.id;
+        
+        // Determine which account number field to update based on ID
+        if (accountType === 'bank') {
+            if (selectId === 'new_receivable_bank_name') {
+                accNoSelect = document.getElementById('new_receivable_bank_acc_no');
+            } else if (selectId === 'receive_bank_name') {
+                accNoSelect = document.getElementById('receive_bank_acc_no');
+            }
+        } else if (accountType === 'mfs') {
+            if (selectId === 'new_receivable_mfs_name') {
+                accNoSelect = document.getElementById('new_receivable_mfs_acc_no');
+            } else if (selectId === 'receive_mfs_name') {
+                accNoSelect = document.getElementById('receive_mfs_acc_no');
+            }
+        }
+        
+        if (!accNoSelect) {
+            console.error(`Could not find account number select for ${accountType}`);
+            return;
+        }
+        
+        console.log(`Found account number select:`, accNoSelect.id);
+        
+        // Clear existing options
+        while (accNoSelect.options.length > 0) {
+            accNoSelect.remove(0);
+        }
+        
+        // Add default option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select Account';
+        accNoSelect.appendChild(defaultOption);
+        
+        // Add new options based on selected account
+        const accountData = accountType === 'bank' 
+            ? window.ACCOUNT_DATA.bankAccounts[name] 
+            : window.ACCOUNT_DATA.mfsAccounts[name];
                 
-            if (accounts) {
-                accounts.forEach(acc => {
-                    const option = document.createElement('option');
-                    option.value = acc.number;
-                    option.textContent = acc.display;
-                    accNoSelect.appendChild(option);
+        if (accountData && accountData.length > 0) {
+            accountData.forEach(acc => {
+                const option = document.createElement('option');
+                option.value = acc.number;
+                option.textContent = acc.display || acc.number;
+                accNoSelect.appendChild(option);
+            });
+            console.log(`Added ${accountData.length} account options for ${name}`);
+        } else {
+            console.warn(`No accounts found for ${accountType}: ${name}`);
+        }
+        
+        // Re-initialize Select2 if it exists
+        if (typeof $ !== 'undefined' && $.fn.select2) {
+            try {
+                $(accNoSelect).select2('destroy').select2({
+                    width: '100%',
+                    dropdownCssClass: 'select2-dropdown'
                 });
+            } catch (e) {
+                console.warn('Error reinitializing Select2:', e);
             }
         }
     }
-    
-    // Add event listeners for account selection
-    document.addEventListener('change', function(e) {
-        if (e.target.name && e.target.name.includes('bank_name')) {
-            updateAccountNumbers(e.target, 'bank');
-        } else if (e.target.name && e.target.name.includes('mfs_name')) {
-            updateAccountNumbers(e.target, 'mfs');
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Parse JSON data from hidden elements
+        try {
+            const bankAccountJson = document.getElementById('bank-account-data').textContent.trim();
+            const mfsAccountJson = document.getElementById('mfs-account-data').textContent.trim();
+
+            window.ACCOUNT_DATA.bankAccounts = JSON.parse(bankAccountJson);
+            window.ACCOUNT_DATA.mfsAccounts = JSON.parse(mfsAccountJson);
+            
+            console.log('Bank accounts loaded:', Object.keys(window.ACCOUNT_DATA.bankAccounts).length);
+            console.log('MFS accounts loaded:', Object.keys(window.ACCOUNT_DATA.mfsAccounts).length);
+        } catch (e) {
+            console.error("Error parsing account data:", e);
+        }
+        
+        // Modal elements
+        const newReceivableModal = document.getElementById('newReceivableModal');
+        const receiveModal = document.getElementById('receiveModal');
+        const detailsModal = document.getElementById('detailsModal');
+        const openNewReceivableBtn = document.getElementById('openNewReceivableBtn');
+        
+        // Open new receivable modal
+        if (openNewReceivableBtn) {
+            openNewReceivableBtn.addEventListener('click', function() {
+                // Set default expected return date to 30 days from today
+                const returnDate = new Date();
+                returnDate.setDate(returnDate.getDate() + 30);
+                document.getElementById('new_expected_return_date').value = returnDate.toISOString().split('T')[0];
+                
+                newReceivableModal.style.display = 'block';
+            });
+        }
+        
+        // Open receive payment modals
+        document.querySelectorAll('.receive-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const receivableId = this.getAttribute('data-receivable-id');
+                const remaining = this.getAttribute('data-remaining');
+                
+                document.getElementById('receive_receivable_id').value = receivableId;
+                document.getElementById('receive_amount').value = remaining;
+                document.getElementById('outstanding_amount').textContent = remaining;
+                
+                receiveModal.style.display = 'block';
+            });
+        });
+        
+        // Open details modal
+        document.querySelectorAll('.view-button').forEach(button => {
+            button.addEventListener('click', function() {
+                showReceivableDetails(this);
+            });
+        });
+        
+        // Initialize bank selects with the dynamic account number updating
+        document.querySelectorAll('#new_receivable_bank_name, #receive_bank_name').forEach(select => {
+            console.log('Initializing bank select:', select.id);
+            
+            // Add change event listener
+            select.addEventListener('change', function() {
+                updateAccountNumbers(this, 'bank');
+            });
+        });
+        
+        // Initialize MFS selects with the dynamic account number updating
+        document.querySelectorAll('#new_receivable_mfs_name, #receive_mfs_name').forEach(select => {
+            console.log('Initializing MFS select:', select.id);
+            
+            // Add change event listener
+            select.addEventListener('change', function() {
+                updateAccountNumbers(this, 'mfs');
+            });
+        });
+        
+        // Close modal buttons
+        document.querySelectorAll('.close-modal, .cancel-button').forEach(element => {
+            element.addEventListener('click', function() {
+                newReceivableModal.style.display = 'none';
+                receiveModal.style.display = 'none';
+                detailsModal.style.display = 'none';
+            });
+        });
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === newReceivableModal) {
+                newReceivableModal.style.display = 'none';
+            } else if (event.target === receiveModal) {
+                receiveModal.style.display = 'none';
+            } else if (event.target === detailsModal) {
+                detailsModal.style.display = 'none';
+            }
+        });
+        
+        // Form validation for new receivable
+        const newReceivableForm = document.querySelector('#newReceivableModal form');
+        if (newReceivableForm) {
+            newReceivableForm.addEventListener('submit', function(e) {
+                const amount = parseFloat(document.getElementById('new_receivable_amount').value);
+                const dateLent = new Date(document.getElementById('new_date_lent').value);
+                const expectedDate = document.getElementById('new_expected_return_date').value;
+                
+                // Check if amount is valid
+                if (isNaN(amount) || amount <= 0) {
+                    e.preventDefault();
+                    alert('Please enter a valid amount greater than zero.');
+                    return false;
+                }
+                
+                // Check if expected return date is after date lent (if provided)
+                if (expectedDate) {
+                    const expectedReturnDate = new Date(expectedDate);
+                    if (expectedReturnDate <= dateLent) {
+                        e.preventDefault();
+                        alert('Expected return date must be after the date lent.');
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+        }
+        
+        // Form validation for receive payment
+        const receiveForm = document.querySelector('#receiveModal form');
+        if (receiveForm) {
+            receiveForm.addEventListener('submit', function(e) {
+                const receiveAmount = parseFloat(document.getElementById('receive_amount').value);
+                const outstanding = parseFloat(document.getElementById('outstanding_amount').textContent);
+                
+                // Check if receive amount is valid
+                if (isNaN(receiveAmount) || receiveAmount <= 0) {
+                    e.preventDefault();
+                    alert('Please enter a valid payment amount greater than zero.');
+                    return false;
+                }
+                
+                // Check if receive amount exceeds outstanding amount
+                if (receiveAmount > outstanding) {
+                    e.preventDefault();
+                    alert(`Payment amount cannot exceed the outstanding amount (${outstanding}/=).`);
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+        
+        // Initialize Select2 for better dropdown UX if jQuery is available
+        if (typeof $ !== 'undefined' && $.fn.select2) {
+            // Initialize Select2 on all selects 
+            $('select').select2({
+                width: '100%',
+                dropdownCssClass: 'select2-dropdown'
+            });
+            
+            // Add special event handlers for Select2 changes
+            $('#new_receivable_bank_name, #receive_bank_name').on('select2:select', function() {
+                updateAccountNumbers(this, 'bank');
+            });
+            
+            $('#new_receivable_mfs_name, #receive_mfs_name').on('select2:select', function() {
+                updateAccountNumbers(this, 'mfs');
+            });
         }
     });
-</script>
 
+    // Function to show receivable details using data attributes (Jinja2 approach)
+    function showReceivableDetails(button) {
+        // Get all data from the button's data attributes (populated by Jinja2)
+        const debtorName = button.getAttribute('data-debtor-name');
+        const amount = button.getAttribute('data-amount');
+        const remaining = button.getAttribute('data-remaining');
+        const dateLent = button.getAttribute('data-date-lent');
+        const expectedDate = button.getAttribute('data-expected-date');
+        const interestRate = button.getAttribute('data-interest-rate');
+        const notes = button.getAttribute('data-notes');
+        const status = button.getAttribute('data-status');
+        const receivableId = button.getAttribute('data-receivable-id');
+        
+        // Populate the details modal using the data attributes
+        document.getElementById('detail-debtor-name').textContent = debtorName;
+        document.getElementById('detail-amount').textContent = amount;
+        document.getElementById('detail-remaining').textContent = remaining;
+        document.getElementById('detail-date-lent').textContent = dateLent;
+        document.getElementById('detail-expected-date').textContent = expectedDate || 'Not specified';
+        document.getElementById('detail-interest-rate').textContent = interestRate || '0';
+        document.getElementById('detail-notes').textContent = notes || 'No notes';
+        document.getElementById('detail-status').textContent = status;
+        
+        // Fetch payment history via AJAX
+        fetch(`/api/receivable_details/${receivableId}`)
+            .then(response => response.json())
+            .then(data => {
+                const paymentList = document.getElementById('payment-list');
+                paymentList.innerHTML = '';
+                
+                if (data.payments && data.payments.length > 0) {
+                    data.payments.forEach(payment => {
+                        const paymentItem = document.createElement('div');
+                        paymentItem.className = 'payment-item';
+                        paymentItem.innerHTML = `
+                            <div>
+                                <span class="payment-date">${payment.date}</span>
+                                ${payment.notes ? ` - ${payment.notes}` : ''}
+                            </div>
+                            <span class="payment-amount">${payment.amount}/=</span>
+                        `;
+                        paymentList.appendChild(paymentItem);
+                    });
+                } else {
+                    paymentList.innerHTML = '<p>No payments received yet.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching payment history:', error);
+                document.getElementById('payment-list').innerHTML = '<p>Error loading payment history.</p>';
+            });
+        
+        // Show the modal
+        document.getElementById('detailsModal').style.display = 'block';
+    }
+</script>
 {% endblock %}

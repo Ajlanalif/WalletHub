@@ -2351,6 +2351,12 @@ def receivables():
     overdue_amount = sum(receivable.remaining_amount for receivable in active_receivables 
                         if receivable.expected_return_date and (receivable.expected_return_date - today).days <= 0)
     
+    # Get unique debtor names for autocomplete
+    existing_debtors = db.session.query(Receivable.debtor_name).filter_by(
+        user_id=current_user.id
+    ).distinct().all()
+    existing_debtors = [debtor[0] for debtor in existing_debtors]  # Extract strings from tuples
+    
     return render_template(
         'receivables.html',
         active_receivables=active_receivables,
@@ -2363,7 +2369,8 @@ def receivables():
         total_received_amount=total_received_amount,
         wallet=wallet,
         bank_accounts=bank_accounts,
-        mfs_accounts=mfs_accounts
+        mfs_accounts=mfs_accounts,
+        existing_debtors=existing_debtors
     )
 
 @app.route('/add_receivable', methods=['POST'])
