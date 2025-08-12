@@ -3,6 +3,9 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_mail import Mail, Message
+import secrets
+from itsdangerous import URLSafeTimedSerializer
 from flask_migrate import Migrate
 from datetime import date, datetime, timedelta
 import os
@@ -15,6 +18,22 @@ app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max file size
 
+# Add these configurations after your existing app.config settings
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Change to your email provider
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'ajlan_alif@stud.cou.ac.bd'  # Your email
+app.config['MAIL_PASSWORD'] = '[REDACTED]'     # Your email app password
+app.config['MAIL_DEFAULT_SENDER'] = 'ajlan_alif@stud.cou.ac.bd'
+app.config['MAIL_ASCII_ATTACHMENTS'] = False 
+
+# Initialize Flask-Mail
+mail = Mail(app)
+mail.init_app(app)
+# Initialize serializer for password reset tokens
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 def create_upload_folder():
@@ -25,6 +44,18 @@ def create_upload_folder():
         print(f"Created uploads directory: {uploads_dir}")
 create_upload_folder()
 
+def generate_reset_token(user_email):
+    """Generate a password reset token for the user"""
+    return serializer.dumps(user_email, salt='password-reset-salt')
+
+def verify_reset_token(token, expiration=1800):  # 30 minutes = 1800 seconds
+    """Verify the reset token and return email if valid"""
+    try:
+        email = serializer.loads(token, salt='password-reset-salt', max_age=expiration)
+        return email
+    except:
+        return None
+    
 
 
 db = SQLAlchemy(app)
@@ -2739,7 +2770,162 @@ def api_receivable_details(receivable_id):
         'payments': payment_data
     })
 
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        if not email:
+            flash('Please enter your email address', 'error')
+            return redirect(url_for('forgot_password'))
+        
+        # Find user by email
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Generate secure token
+            token = generate_reset_token(user.email)
+            
+            # Send reset email
+            try:
+                send_reset_email(user, token)
+                flash('Password reset instructions have been sent to your email', 'success')
+            except Exception as e:
+                flash('Error sending email. Please try again later.', 'error')
+                app.logger.error(f"Failed to send reset email: {str(e)}")
+        else:
+            # Don't reveal if email exists or not for security
+            flash('If an account with that email exists, password reset instructions have been sent', 'info')
+        
+        return redirect(url_for('login'))
+    
+    return render_template('forgot_password.html')
 
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    # Verify the reset token
+    email = verify_reset_token(token)
+    
+    if not email:
+        flash('Invalid or expired reset link', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    # Find the user
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash('Invalid reset link', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Validation
+        if not new_password or not confirm_password:
+            flash('Please fill in all fields', 'error')
+            return render_template('reset_password.html', token=token)
+        
+        if new_password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return render_template('reset_password.html', token=token)
+        
+        if len(new_password) < 8:
+            flash('Password must be at least 8 characters long', 'error')
+            return render_template('reset_password.html', token=token)
+        
+        # Additional password strength validation
+        if (not any(char.islower() for char in new_password) or
+            not any(char.isupper() for char in new_password) or
+            not any(char.isdigit() for char in new_password) or
+            not any(char in '!@#$%^&*()_+-=[]{}|;:,.<>?/' for char in new_password)):
+            flash('Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character', 'error')
+            return render_template('reset_password.html', token=token)
+        
+        # Update user password
+        user.password = generate_password_hash(new_password, method='sha256')
+        db.session.commit()
+        
+        flash('Your password has been successfully reset. You can now log in with your new password.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', token=token)
+
+def send_reset_email(user, token):
+    """Send password reset email"""
+    try:
+        reset_url = url_for('reset_password', token=token, _external=True)
+        
+        msg = Message(
+            'Password Reset Request - WalletHub',
+            recipients=[user.email]
+        )
+        
+        msg.html = f'''
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+                <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h2 style="color: #2c3e50; margin-bottom: 20px;">Password Reset Request</h2>
+                    
+                    <p>Hello <strong>{user.username}</strong>,</p>
+                    
+                    <p>We received a request to reset your password for your WalletHub account. If you didn't make this request, you can safely ignore this email.</p>
+                    
+                    <p>To reset your password, click the button below:</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{reset_url}" 
+                        style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                            Reset My Password
+                        </a>
+                    </div>
+                    
+                    <p>Or copy and paste this link into your browser:</p>
+                    <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace;">
+                        {reset_url}
+                    </p>
+                    
+                    <p style="margin-top: 30px; font-size: 14px; color: #7f8c8d;">
+                        <strong>Important:</strong> This link will expire in 30 minutes for security reasons.
+                    </p>
+                    
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+                    
+                    <p style="font-size: 12px; color: #95a5a6;">
+                        If you're having trouble clicking the button, copy and paste the URL above into your web browser.
+                        <br><br>
+                        This is an automated email, please do not reply to this message.
+                        <br><br>
+                        Best regards,<br>
+                        The WalletHub Team
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        '''
+        print(f"Attempting to send email to: {user.email}")
+        mail.send(msg)
+        print("Email sent successfully!")
+
+    except Exception as e:
+        print(f"Detailed email error: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        raise e  # Re-raise the exception so it can be caught by the calling function
+
+@app.route('/test_email')
+def test_email():
+    try:
+        msg = Message(
+            'Test Email - WalletHub',
+            recipients=['ajlan_alif@stud.cou.ac.bd']  # Send to yourself for testing
+        )
+        msg.body = 'This is a test email to verify the email configuration is working.'
+        mail.send(msg)
+        return "Test email sent successfully!"
+    except Exception as e:
+        return f"Email test failed: {str(e)}"
+    
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
