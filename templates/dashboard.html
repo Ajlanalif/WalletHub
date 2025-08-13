@@ -151,7 +151,13 @@
             <a href="{{ url_for('monthly_tracker') }}" class="view-all-button">
                 <i class="fas fa-list"></i> View Transaction Summary of this Month
             </a>
+            
         </div>
+        <div class="savings-container">
+    <a href="{{ url_for('savings') }}" class="savings-button">
+        <i class="fas fa-piggy-bank"></i> Manage Savings
+    </a>
+</div>
 
         <div class="transaction-container">
             <div class="transaction-buttons">
@@ -609,6 +615,45 @@
         </div>
     </div>
 </div>
+<!-- Add this after the budget modal, around line 750 -->
+
+<!-- Savings Notifications Modal -->
+<div id="savingsNotificationModal" class="modal savings-notification-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-piggy-bank"></i> Savings Reminder</h3>
+            <span class="close-modal" onclick="closeSavingsNotification()">&times;</span>
+        </div>
+        <div class="modal-body" id="savingsNotificationContent">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Update Notification Day Modal -->
+<div id="updateNotificationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-calendar-alt"></i> Update Notification Day</h3>
+            <span class="close-modal" onclick="closeUpdateNotificationModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="updateNotificationForm">
+                <div class="form-group">
+                    <label for="new_notification_day">Notification Day (1-28):</label>
+                    <input type="number" id="new_notification_day" name="notification_day" 
+                           min="1" max="28" required>
+                    <small>Choose a day of the month to receive savings reminders</small>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" onclick="closeUpdateNotificationModal()" class="cancel-button">Cancel</button>
+                    <button type="submit" class="submit-button">Update Notification Day</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 </div>
 <script type="text/javascript">
     // This object will be populated by Jinja template
@@ -621,7 +666,6 @@
     .master {
         margin: 20px;
         padding: 40px;
-
         background: radial-gradient(circle, rgba(39, 180, 159, 0.7247899159663865) 0%, rgba(210, 183, 241, 0.8396358543417367) 90%);
         box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
         border-radius: 10px;
@@ -1328,6 +1372,38 @@
         display: block;
     }
 
+    .savings-notification-modal .modal-content {
+        width: 95%;
+        max-width: none;
+    }
+    
+    .notification-scheme {
+        padding: 15px;
+    }
+    
+    .notification-scheme-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .notification-actions {
+        flex-direction: column;
+    }
+    
+    .notification-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 20px;
+    }
+    
+    .amount-highlight {
+        font-size: 1.5em;
+    }
+    
+    .scheme-title {
+        font-size: 1.1em;
+    }
     /* Headers responsive */
     .form-container h1 {
         font-size: 24px;
@@ -1456,6 +1532,288 @@
         padding: 2px 6px;
     }
 }
+/* Savings button styling */
+.savings-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.savings-button {
+    display: inline-block;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1em;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.savings-button:hover {
+    background: linear-gradient(135deg, #218838, #1ea080);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(40, 167, 69, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.savings-button i {
+    margin-right: 8px;
+    font-size: 1.2em;
+}
+/* Add this to your existing style section */
+
+/* Savings Notification Modal Styles */
+.savings-notification-modal .modal-content {
+    border: 3px solid #28a745;
+    box-shadow: 0 8px 32px rgba(40, 167, 69, 0.3);
+    max-width: 600px;
+}
+
+.savings-notification-modal .modal-header {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    padding: 20px;
+}
+
+.savings-notification-modal .modal-header h3 {
+    font-size: 1.4em;
+    margin: 0;
+    color: white;
+}
+
+.notification-scheme {
+    background: #f8f9fa;
+    border: 2px solid #28a745;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.notification-scheme-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.scheme-title {
+    font-size: 1.3em;
+    font-weight: 700;
+    color: #28a745;
+    margin: 0;
+}
+
+.notification-day-badge {
+    background: #007bff;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.notification-progress {
+    margin: 15px 0;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: #6c757d;
+}
+
+.notification-progress-bar {
+    width: 100%;
+    height: 12px;
+    background: #dee2e6;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.notification-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745, #20c997);
+    transition: width 0.5s ease;
+}
+
+.suggested-amount {
+    background: linear-gradient(135deg, #e3f2fd, #f0f8ff);
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+    margin: 15px 0;
+}
+
+.suggested-amount h4 {
+    margin: 0 0 10px 0;
+    color: #007bff;
+    font-size: 1.1em;
+}
+
+.amount-highlight {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: #28a745;
+    margin: 10px 0;
+}
+
+.notification-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.notification-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95em;
+}
+
+.notification-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn-contribute {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.btn-contribute:hover {
+    background: linear-gradient(135deg, #218838, #1ea080);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-change-day {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+}
+
+.btn-change-day:hover {
+    background: linear-gradient(135deg, #0056b3, #003d82);
+}
+
+.btn-dismiss {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-dismiss:hover {
+    background: #495057;
+}
+
+.btn-remind-later {
+    background: #ffc107;
+    color: #212529;
+}
+
+.btn-remind-later:hover {
+    background: #e0a800;
+}
+
+.no-notifications {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.no-notifications i {
+    font-size: 3em;
+    color: #28a745;
+    margin-bottom: 20px;
+}
+
+/* Update Notification Modal */
+.update-notification-form {
+    padding: 20px 0;
+}
+/* Urgency indicator styles */
+.urgency-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.urgency-icon {
+    font-size: 1.1em;
+}
+
+.urgency-message {
+    flex-grow: 1;
+}
+
+/* Different urgency levels */
+.notification-scheme.urgency-today .urgency-indicator {
+    background: #e3f2fd;
+    color: #1976d2;
+    border-left: 4px solid #2196f3;
+}
+
+.notification-scheme.urgency-recent .urgency-indicator {
+    background: #fff3e0;
+    color: #f57c00;
+    border-left: 4px solid #ff9800;
+}
+
+.notification-scheme.urgency-overdue .urgency-indicator {
+    background: #ffeaa7;
+    color: #d63031;
+    border-left: 4px solid #e17055;
+}
+
+.notification-scheme.urgency-critical .urgency-indicator {
+    background: #ffecea;
+    color: #dc3545;
+    border-left: 4px solid #dc3545;
+    animation: pulse-urgent 2s infinite;
+}
+
+@keyframes pulse-urgent {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Update notification scheme borders based on urgency */
+.notification-scheme.urgency-today {
+    border-color: #2196f3;
+}
+
+.notification-scheme.urgency-recent {
+    border-color: #ff9800;
+}
+
+.notification-scheme.urgency-overdue {
+    border-color: #e17055;
+}
+
+.notification-scheme.urgency-critical {
+    border-color: #dc3545;
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.3);
+}
+
+
 
 /* Small mobile devices */
 @media (max-width: 480px) {
@@ -1517,6 +1875,18 @@
     .transaction-form h4 {
         font-size: 15px;
         margin: 20px 0 10px 0;
+    }
+        .progress-info {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .suggested-amount {
+        padding: 12px;
+    }
+    
+    .amount-highlight {
+        font-size: 1.3em;
     }
 }
 
@@ -1981,6 +2351,182 @@ function toggleBudgetDetails() {
         }
     }
 }
+
+
+// Savings notification functions
+function checkSavingsNotifications() {
+    fetch('/check_savings_notifications')
+        .then(response => response.json())
+        .then(data => {
+            if (data.count > 0) {
+                showSavingsNotifications(data.notifications);
+            }
+        })
+        .catch(error => {
+            console.error('Error checking savings notifications:', error);
+        });
+}
+
+function showSavingsNotifications(notifications) {
+    const modal = document.getElementById('savingsNotificationModal');
+    const content = document.getElementById('savingsNotificationContent');
+    
+    if (notifications.length === 0) {
+        content.innerHTML = `
+            <div class="no-notifications">
+                <i class="fas fa-check-circle"></i>
+                <h3>All Caught Up!</h3>
+                <p>No savings reminders for today.</p>
+            </div>
+        `;
+    } else {
+        let notificationHTML = `
+            <div style="margin-bottom: 20px;">
+                <p><strong>🎯 Time to save!</strong> You have ${notifications.length} savings scheme(s) ready for contribution:</p>
+            </div>
+        `;
+        
+        notifications.forEach(notification => {
+            const progress = (notification.current_amount / notification.target_amount * 100).toFixed(1);
+            
+            // Set urgency styling and message
+            let urgencyClass = '';
+            let urgencyMessage = '';
+            let urgencyIcon = '📅';
+            
+            switch(notification.urgency) {
+                case 'today':
+                    urgencyClass = 'urgency-today';
+                    urgencyMessage = 'Reminder day is today!';
+                    urgencyIcon = '🆕';
+                    break;
+                case 'recent':
+                    urgencyClass = 'urgency-recent';
+                    urgencyMessage = `${notification.days_since_notification} days since reminder day`;
+                    urgencyIcon = '⏰';
+                    break;
+                case 'overdue':
+                    urgencyClass = 'urgency-overdue';
+                    urgencyMessage = `${notification.days_since_notification} days overdue!`;
+                    urgencyIcon = '⚠️';
+                    break;
+                case 'critical':
+                    urgencyClass = 'urgency-critical';
+                    urgencyMessage = `${notification.days_since_notification} days overdue! Please contribute soon.`;
+                    urgencyIcon = '🚨';
+                    break;
+            }
+            
+            notificationHTML += `
+                <div class="notification-scheme ${urgencyClass}">
+                    <div class="notification-scheme-header">
+                        <h3 class="scheme-title">${notification.scheme_name}</h3>
+                        <div class="notification-day-badge">Day ${notification.notification_day}</div>
+                    </div>
+                    
+                    <div class="urgency-indicator">
+                        <span class="urgency-icon">${urgencyIcon}</span>
+                        <span class="urgency-message">${urgencyMessage}</span>
+                    </div>
+                    
+                    <div class="notification-progress">
+                        <div class="progress-info">
+                            <span>Progress: ${progress}%</span>
+                            <span>${notification.current_amount.toFixed(2)}/= of ${notification.target_amount.toFixed(2)}/=</span>
+                        </div>
+                        <div class="notification-progress-bar">
+                            <div class="notification-progress-fill" style="width: ${Math.min(progress, 100)}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="suggested-amount">
+                        <h4><i class="fas fa-lightbulb"></i> Suggested Monthly Contribution:</h4>
+                        <div class="amount-highlight">${notification.suggested_amount.toFixed(2)}/=</div>
+                        <small>Based on your remaining target and time</small>
+                    </div>
+                    
+                    <div class="notification-actions">
+                        <a href="/savings_scheme_details/${notification.scheme_id}" class="notification-btn btn-contribute">
+                            <i class="fas fa-plus-circle"></i> Add Contribution
+                        </a>
+                        <button onclick="changeNotificationDay(${notification.scheme_id}, ${notification.notification_day})" class="notification-btn btn-change-day">
+                            <i class="fas fa-calendar-edit"></i> Change Reminder Day
+                        </button>
+                        <button onclick="dismissNotification(${notification.scheme_id})" class="notification-btn btn-dismiss">
+                            <i class="fas fa-times"></i> Dismiss for Today
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        content.innerHTML = notificationHTML;
+    }
+    
+    modal.style.display = 'block';
+}
+
+
+function closeSavingsNotification() {
+    document.getElementById('savingsNotificationModal').style.display = 'none';
+}
+
+function dismissNotification(schemeId) {
+    fetch(`/dismiss_savings_notification/${schemeId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeSavingsNotification();
+            // Show a brief confirmation
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #28a745;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                z-index: 1001;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            notification.innerHTML = '<i class="fas fa-check"></i> Reminder dismissed for today';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
+        }
+    })
+    .catch(error => {
+        console.error('Error dismissing notification:', error);
+    });
+}
+
+let currentSchemeId = null;
+
+function changeNotificationDay(schemeId, currentDay) {
+    currentSchemeId = schemeId;
+    document.getElementById('new_notification_day').value = currentDay;
+    document.getElementById('updateNotificationModal').style.display = 'block';
+}
+
+function closeUpdateNotificationModal() {
+    document.getElementById('updateNotificationModal').style.display = 'none';
+    currentSchemeId = null;
+}
+
+
+
+
+
+
+
         // Main initialization when DOM is loaded
         document.addEventListener('DOMContentLoaded', function () {
             console.log('DOM loaded, initializing app...');
@@ -2397,6 +2943,78 @@ function toggleBudgetDetails() {
                     updateAccountNumbers(this, 'mfs');
                 });
             }
+            // Handle update notification form submission
+document.getElementById('updateNotificationForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!currentSchemeId) return;
+    
+    const newDay = document.getElementById('new_notification_day').value;
+    
+    fetch(`/update_notification_day/${currentSchemeId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            notification_day: newDay
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeUpdateNotificationModal();
+            closeSavingsNotification();
+            
+            // Show success message
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #007bff;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                z-index: 1001;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            notification.innerHTML = `<i class="fas fa-calendar-check"></i> ${data.message}`;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error updating notification day:', error);
+        alert('Error updating notification day');
+    });
+});
+
+// Update your existing DOMContentLoaded function to include savings notifications
+// Add this to your existing DOMContentLoaded event listener:
+
+// Check for savings notifications after a short delay
+setTimeout(() => {
+    checkSavingsNotifications();
+}, 1500); // Check after budget modal logic
+
+// Close notification modals when clicking outside
+window.addEventListener('click', function(event) {
+    const savingsModal = document.getElementById('savingsNotificationModal');
+    const updateModal = document.getElementById('updateNotificationModal');
+    
+    if (event.target === savingsModal) {
+        closeSavingsNotification();
+    }
+    if (event.target === updateModal) {
+        closeUpdateNotificationModal();
+    }
+});
         });
         
 

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, session, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
@@ -281,6 +281,99 @@ class Budget(db.Model):
     
     # Ensure unique budget per user per month-year
     __table_args__ = (db.UniqueConstraint('user_id', 'month', 'year', name='unique_user_month_budget'),)
+
+
+# Add these models after your existing Budget model
+class SavingsScheme(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    scheme_name = db.Column(db.String(200), nullable=False)
+    target_amount = db.Column(db.Float, nullable=False)
+    monthly_target = db.Column(db.Float, nullable=False)
+    duration_months = db.Column(db.Integer, nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    notification_day = db.Column(db.Integer, nullable=False, default=1)  # Day of month for notification
+    is_active = db.Column(db.Boolean, default=True)
+    is_completed = db.Column(db.Boolean, default=False)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('savings_schemes', lazy=True))
+    contributions = db.relationship('SavingsContribution', backref='scheme', lazy=True, cascade='all, delete-orphan')
+    
+    @property
+    def total_saved(self):
+        return sum(contribution.amount for contribution in self.contributions)
+    
+    @property
+    def remaining_amount(self):
+        return max(0, self.target_amount - self.total_saved)
+    
+    @property
+    def progress_percentage(self):
+        if self.target_amount <= 0:
+            return 0
+        return min(100, (self.total_saved / self.target_amount) * 100)
+    
+    @property
+    def months_remaining(self):
+        today = date.today()
+        if today >= self.end_date:
+            return 0
+        return ((self.end_date.year - today.year) * 12 + (self.end_date.month - today.month))
+    
+    @property
+    def is_due_for_contribution(self):
+        today = date.today()
+        return today.day >= self.notification_day and not self.is_completed
+
+class SavingsContribution(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    scheme_id = db.Column(db.Integer, db.ForeignKey('savings_scheme.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    contribution_date = db.Column(db.Date, nullable=False, default=date.today)
+    month = db.Column(db.Integer, nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    
+    # Source account details
+    source_type = db.Column(db.String(10), nullable=False)  # 'wallet', 'bank', or 'mfs'
+    source_bank_name = db.Column(db.String(150), nullable=True)
+    source_account_number = db.Column(db.String(50), nullable=True)
+    source_mfs_name = db.Column(db.String(150), nullable=True)
+    source_mfs_number = db.Column(db.String(50), nullable=True)
+    
+    # Related transaction
+    transaction_id = db.Column(db.Integer, db.ForeignKey('transaction.id'), nullable=True)
+    transaction = db.relationship('Transaction')
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('savings_contributions', lazy=True))
+    
+    def __init__(self, **kwargs):
+        super(SavingsContribution, self).__init__(**kwargs)
+        if not self.month:
+            self.month = self.contribution_date.month
+        if not self.year:
+            self.year = self.contribution_date.year
+
+class SavingsNotification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    scheme_id = db.Column(db.Integer, db.ForeignKey('savings_scheme.id'), nullable=False)
+    notification_date = db.Column(db.Date, nullable=False)
+    message = db.Column(db.String(500), nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('savings_notifications', lazy=True))
+    scheme = db.relationship('SavingsScheme', backref=db.backref('notifications', lazy=True))
+
+
 
 @app.context_processor
 def inject_user_details():
@@ -3409,6 +3502,716 @@ def get_budget(month, year):
         'exists': budget is not None,
         'amount': budget.amount if budget else 0
     })
+
+@app.route('/savings',methods=['GET','POST'])
+@login_required
+def savings():
+    if request.method == 'POST':
+        # Handle edit scheme
+        if request.form.get('action') == 'edit_scheme':
+            try:
+                scheme_id = int(request.form.get('edit_scheme_id'))
+                scheme = SavingsScheme.query.filter_by(
+                    id=scheme_id,
+                    user_id=current_user.id
+                ).first()
+                
+                if not scheme:
+                    flash('Savings scheme not found', 'error')
+                    return redirect(url_for('savings'))
+                
+                # Update scheme details
+                scheme.scheme_name = request.form.get('scheme_name').strip()
+                scheme.target_amount = float(request.form.get('target_amount'))
+                scheme.duration_months = int(request.form.get('duration_months'))
+                scheme.notification_day = int(request.form.get('notification_day'))
+                scheme.description = request.form.get('description', '').strip()
+                
+                # Recalculate monthly target
+                scheme.monthly_target = scheme.target_amount / scheme.duration_months
+                
+                # Recalculate end date based on new duration using built-in datetime
+                start_year = scheme.start_date.year
+                start_month = scheme.start_date.month
+                start_day = scheme.start_date.day
+                
+                end_month = start_month + scheme.duration_months
+                end_year = start_year
+                
+                # Handle year overflow
+                while end_month > 12:
+                    end_month -= 12
+                    end_year += 1
+                
+                # Handle day overflow for different month lengths
+                import calendar
+                max_day_in_end_month = calendar.monthrange(end_year, end_month)[1]
+                end_day = min(start_day, max_day_in_end_month)
+                
+                scheme.end_date = date(end_year, end_month, end_day)
+                
+                db.session.commit()
+                flash(f'Savings scheme "{scheme.scheme_name}" updated successfully!', 'success')
+                
+                return redirect(url_for('savings_scheme_details', scheme_id=scheme_id))
+                
+            except ValueError as e:
+                flash('Invalid input values. Please check your entries.', 'error')
+                return redirect(url_for('savings'))
+            except Exception as e:
+                db.session.rollback()
+                flash('Error updating savings scheme. Please try again.', 'error')
+                app.logger.error(f"Savings scheme edit error: {str(e)}")
+                return redirect(url_for('savings'))
+        
+        # Handle new scheme creation
+        elif request.form.get('scheme_name'):  # This indicates it's a new scheme form
+            return add_savings_scheme()  # Call your existing function
+    
+    # Get all savings schemes for the current user
+    active_schemes = SavingsScheme.query.filter_by(
+        user_id=current_user.id,
+        is_active=True,
+        is_completed=False
+    ).order_by(SavingsScheme.end_date).all()
+    
+    completed_schemes = SavingsScheme.query.filter_by(
+        user_id=current_user.id,
+        is_completed=True
+    ).order_by(SavingsScheme.end_date.desc()).all()
+    
+    inactive_schemes = SavingsScheme.query.filter_by(
+        user_id=current_user.id,
+        is_active=False,
+        is_completed=False
+    ).order_by(SavingsScheme.created_at.desc()).all()
+    
+    # Get wallet, bank, and MFS accounts for contributions
+    wallet = WalletBalance.query.filter_by(user_id=current_user.id).first()
+    bank_accounts = BankBalance.query.filter_by(user_id=current_user.id).all()
+    mfs_accounts = MFSBalance.query.filter_by(user_id=current_user.id).all()
+    
+    # Calculate summary statistics
+    total_target_amount = sum(scheme.target_amount for scheme in active_schemes)
+    total_saved_amount = sum(scheme.total_saved for scheme in active_schemes)
+    total_remaining_amount = total_target_amount - total_saved_amount
+    
+    # Get schemes due for contribution this month
+    today = date.today()
+    due_schemes = [scheme for scheme in active_schemes 
+                   if scheme.is_due_for_contribution and scheme.months_remaining > 0]
+    
+    # Get recent contributions (last 10)
+    recent_contributions = SavingsContribution.query.filter_by(
+        user_id=current_user.id
+    ).order_by(SavingsContribution.contribution_date.desc()).limit(10).all()
+    
+    return render_template(
+        'savings.html',
+        active_schemes=active_schemes,
+        completed_schemes=completed_schemes,
+        inactive_schemes=inactive_schemes,
+        wallet=wallet,
+        bank_accounts=bank_accounts,
+        mfs_accounts=mfs_accounts,
+        total_target_amount=total_target_amount,
+        total_saved_amount=total_saved_amount,
+        total_remaining_amount=total_remaining_amount,
+        due_schemes=due_schemes,
+        recent_contributions=recent_contributions,
+        today=today
+    )
+
+@app.route('/add_savings_scheme', methods=['POST'])
+@login_required
+def add_savings_scheme():
+    try:
+        scheme_name = request.form.get('scheme_name')
+        target_amount = float(request.form.get('target_amount'))
+        duration_months = int(request.form.get('duration_months'))
+        start_date_str = request.form.get('start_date')
+        notification_day = int(request.form.get('notification_day', 1))
+        description = request.form.get('description', '')
+        
+        if target_amount <= 0:
+            flash('Target amount must be greater than 0', 'error')
+            return redirect(url_for('savings'))
+        
+        if duration_months <= 0:
+            flash('Duration must be greater than 0 months', 'error')
+            return redirect(url_for('savings'))
+        
+        # Parse start date
+        start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        
+        # Calculate end date
+        end_month = start_date_obj.month + duration_months
+        end_year = start_date_obj.year
+        while end_month > 12:
+            end_month -= 12
+            end_year += 1
+        
+        # Set end date to last day of the end month
+        if end_month == 12:
+            end_date_obj = date(end_year, end_month, 31)
+        elif end_month in [4, 6, 9, 11]:
+            end_date_obj = date(end_year, end_month, 30)
+        elif end_month == 2:
+            # Check for leap year
+            if end_year % 4 == 0 and (end_year % 100 != 0 or end_year % 400 == 0):
+                end_date_obj = date(end_year, end_month, 29)
+            else:
+                end_date_obj = date(end_year, end_month, 28)
+        else:
+            end_date_obj = date(end_year, end_month, 31)
+        
+        # Calculate monthly target
+        monthly_target = target_amount / duration_months
+        
+        # Create new savings scheme
+        new_scheme = SavingsScheme(
+            user_id=current_user.id,
+            scheme_name=scheme_name,
+            target_amount=target_amount,
+            monthly_target=monthly_target,
+            duration_months=duration_months,
+            start_date=start_date_obj,
+            end_date=end_date_obj,
+            notification_day=notification_day,
+            description=description
+        )
+        
+        db.session.add(new_scheme)
+        db.session.commit()
+        
+        flash(f'Savings scheme "{scheme_name}" created successfully!', 'success')
+        
+    except ValueError as e:
+        flash('Invalid input data. Please check your entries.', 'error')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error creating savings scheme. Please try again.', 'error')
+        app.logger.error(f"Savings scheme creation error: {str(e)}")
+    
+    return redirect(url_for('savings'))
+
+@app.route('/contribute_to_savings', methods=['POST'])
+@login_required
+def contribute_to_savings():
+    try:
+        scheme_id = int(request.form.get('scheme_id'))
+        amount = float(request.form.get('amount'))
+        account_type = request.form.get('account_type')
+        contribution_date_str = request.form.get('contribution_date')
+        notes = request.form.get('notes', '')
+        
+        # Find the savings scheme
+        scheme = SavingsScheme.query.filter_by(
+            id=scheme_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not scheme:
+            flash('Savings scheme not found', 'error')
+            return redirect(url_for('savings'))
+        
+        if scheme.is_completed:
+            flash('This savings scheme is already completed', 'error')
+            return redirect(url_for('savings'))
+        
+        if amount <= 0:
+            flash('Contribution amount must be greater than 0', 'error')
+            return redirect(url_for('savings'))
+        
+        # Parse contribution date
+        contribution_date_obj = datetime.strptime(contribution_date_str, '%Y-%m-%d').date()
+        
+        # Create expense transaction for the contribution
+        timestamp = datetime.combine(contribution_date_obj, datetime.min.time())
+        
+        # Handle different account types
+        transaction = None
+        
+        if account_type == 'wallet':
+            wallet = WalletBalance.query.filter_by(user_id=current_user.id).first()
+            if not wallet or wallet.balance < amount:
+                flash('Insufficient funds in your wallet', 'error')
+                return redirect(url_for('savings'))
+            
+            wallet.balance -= amount
+            
+            transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='expense',
+                amount=amount,
+                description=f"Savings contribution to {scheme.scheme_name}",
+                category="Savings",
+                timestamp=timestamp,
+                source_type='wallet'
+            )
+            
+        elif account_type == 'bank':
+            bank_name = request.form.get('bank_name')
+            bank_acc_no = request.form.get('bank_acc_no')
+            
+            bank = BankBalance.query.filter_by(
+                user_id=current_user.id,
+                bank_name=bank_name,
+                account_number=bank_acc_no
+            ).first()
+            
+            if not bank:
+                flash('Bank account not found', 'error')
+                return redirect(url_for('savings'))
+                
+            if bank.balance < amount:
+                flash('Insufficient funds in your bank account', 'error')
+                return redirect(url_for('savings'))
+                
+            bank.balance -= amount
+            
+            transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='expense',
+                amount=amount,
+                description=f"Savings contribution to {scheme.scheme_name}",
+                category="Savings",
+                timestamp=timestamp,
+                source_type='bank',
+                source_bank_name=bank_name,
+                source_account_number=bank_acc_no
+            )
+            
+        elif account_type == 'mfs':
+            mfs_name = request.form.get('mfs_name')
+            mfs_acc_no = request.form.get('mfs_acc_no')
+            
+            mfs = MFSBalance.query.filter_by(
+                user_id=current_user.id,
+                mfs_name=mfs_name,
+                account_no=mfs_acc_no
+            ).first()
+            
+            if not mfs:
+                flash('MFS account not found', 'error')
+                return redirect(url_for('savings'))
+                
+            if mfs.balance < amount:
+                flash('Insufficient funds in your MFS account', 'error')
+                return redirect(url_for('savings'))
+                
+            mfs.balance -= amount
+            
+            transaction = Transaction(
+                user_id=current_user.id,
+                transaction_type='expense',
+                amount=amount,
+                description=f"Savings contribution to {scheme.scheme_name}",
+                category="Savings",
+                timestamp=timestamp,
+                source_type='mfs',
+                source_mfs_name=mfs_name,
+                source_mfs_number=mfs_acc_no
+            )
+        
+        db.session.add(transaction)
+        db.session.flush()
+        
+        # Create savings contribution record
+        contribution = SavingsContribution(
+            scheme_id=scheme.id,
+            user_id=current_user.id,
+            amount=amount,
+            contribution_date=contribution_date_obj,
+            month=contribution_date_obj.month,
+            year=contribution_date_obj.year,
+            notes=notes,
+            source_type=account_type,
+            transaction_id=transaction.id
+        )
+        
+        # Set account-specific details
+        if account_type == 'bank':
+            contribution.source_bank_name = bank_name
+            contribution.source_account_number = bank_acc_no
+        elif account_type == 'mfs':
+            contribution.source_mfs_name = mfs_name
+            contribution.source_mfs_number = mfs_acc_no
+        
+        db.session.add(contribution)
+        
+        # Check if scheme is now completed
+        if scheme.total_saved + amount >= scheme.target_amount:
+            scheme.is_completed = True
+            flash(f'Congratulations! You have completed your "{scheme.scheme_name}" savings goal!', 'success')
+        else:
+            flash(f'Contribution of {amount:.2f}/= added to "{scheme.scheme_name}"', 'success')
+        
+        db.session.commit()
+        
+    except ValueError:
+        flash('Invalid contribution amount', 'error')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error processing savings contribution. Please try again.', 'error')
+        app.logger.error(f"Savings contribution error: {str(e)}")
+    
+    return redirect(url_for('savings'))
+
+@app.route('/toggle_savings_scheme/<int:scheme_id>', methods=['GET', 'POST'])
+@login_required
+def toggle_savings_scheme(scheme_id):
+    scheme = SavingsScheme.query.filter_by(
+        id=scheme_id,
+        user_id=current_user.id
+    ).first()
+    
+    if not scheme:
+        flash('Savings scheme not found', 'error')
+        return redirect(url_for('savings'))
+    
+    if scheme.is_completed:
+        flash('Cannot modify completed savings scheme', 'error')
+        return redirect(url_for('savings'))
+    
+    scheme.is_active = not scheme.is_active
+    db.session.commit()
+    
+    status = "activated" if scheme.is_active else "deactivated"
+    flash(f'Savings scheme "{scheme.scheme_name}" has been {status}', 'success')
+    
+    return redirect(url_for('savings'))
+
+@app.route('/delete_savings_scheme/<int:scheme_id>', methods=['GET'])
+@login_required
+def delete_savings_scheme(scheme_id):
+    try:
+        scheme = SavingsScheme.query.filter_by(
+            id=scheme_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not scheme:
+            flash('Savings scheme not found', 'error')
+            return redirect(url_for('savings'))
+        
+        scheme_name = scheme.scheme_name
+        
+        # Delete all related contributions first
+        SavingsContribution.query.filter_by(scheme_id=scheme_id).delete()
+        
+        # Delete the scheme
+        db.session.delete(scheme)
+        db.session.commit()
+        
+        flash(f'Savings scheme "{scheme_name}" has been deleted', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting savings scheme. Please try again.', 'error')
+        app.logger.error(f"Savings scheme deletion error: {str(e)}")
+        print(f"Delete error details: {str(e)}")  # Add this for debugging
+    
+    return redirect(url_for('savings'))
+
+# Add these routes after your existing savings routes
+
+@app.route('/check_savings_notifications')
+@login_required
+def check_savings_notifications():
+    """Check for savings notifications and return as JSON"""
+    from datetime import date
+    
+    today = date.today()
+    current_day = today.day
+    
+    # Get all active savings schemes for the user
+    active_schemes = SavingsScheme.query.filter_by(
+        user_id=current_user.id,
+        is_active=True,
+        is_completed=False
+    ).all()
+    
+    notifications = []
+    
+    for scheme in active_schemes:
+        # Check if today is on or after the notification day
+        # AND if today is still within the current month (to avoid showing next month's notification)
+        should_notify = current_day >= scheme.notification_day
+        
+        if should_notify:
+            # Check if user has already made a contribution this month
+            current_month_start = date(today.year, today.month, 1)
+            if today.month == 12:
+                next_month_start = date(today.year + 1, 1, 1)
+            else:
+                next_month_start = date(today.year, today.month + 1, 1)
+            
+            # Check for contributions in current month
+            monthly_contribution = SavingsContribution.query.filter(
+                SavingsContribution.scheme_id == scheme.id,
+                SavingsContribution.contribution_date >= current_month_start,
+                SavingsContribution.contribution_date < next_month_start
+            ).first()
+            
+            # Also check if notification was dismissed for today
+            session_key = f'dismissed_savings_{scheme.id}_{today}'
+            notification_dismissed = session.get(session_key, False)
+            
+            if not monthly_contribution and not notification_dismissed:
+                # Calculate suggested monthly amount
+                remaining_amount = scheme.target_amount - scheme.total_saved
+                
+                # Calculate months elapsed
+                months_elapsed = 0
+                if scheme.start_date <= today:
+                    months_elapsed = (today.year - scheme.start_date.year) * 12 + (today.month - scheme.start_date.month)
+                
+                remaining_months = max(1, scheme.duration_months - months_elapsed)
+                suggested_amount = remaining_amount / remaining_months
+                
+                # Calculate days since notification day
+                days_since_notification = current_day - scheme.notification_day
+                
+                # Determine urgency level
+                if days_since_notification == 0:
+                    urgency = "today"
+                elif days_since_notification <= 3:
+                    urgency = "recent"
+                elif days_since_notification <= 7:
+                    urgency = "overdue"
+                else:
+                    urgency = "critical"
+                
+                notifications.append({
+                    'scheme_id': scheme.id,
+                    'scheme_name': scheme.scheme_name,
+                    'suggested_amount': round(suggested_amount, 2),
+                    'target_amount': scheme.target_amount,
+                    'current_amount': scheme.total_saved,
+                    'remaining_amount': remaining_amount,
+                    'notification_day': scheme.notification_day,
+                    'days_since_notification': days_since_notification,
+                    'urgency': urgency
+                })
+    
+    return jsonify({
+        'notifications': notifications,
+        'count': len(notifications)
+    })
+
+@app.route('/update_notification_day/<int:scheme_id>', methods=['POST'])
+@login_required
+def update_notification_day(scheme_id):
+    """Update notification day for a savings scheme"""
+    scheme = SavingsScheme.query.filter_by(id=scheme_id, user_id=current_user.id).first()
+    
+    if not scheme:
+        return jsonify({'success': False, 'message': 'Scheme not found'})
+    
+    new_notification_day = request.json.get('notification_day')
+    
+    if not new_notification_day or not (1 <= int(new_notification_day) <= 28):
+        return jsonify({'success': False, 'message': 'Invalid notification day. Must be between 1-28'})
+    
+    try:
+        scheme.notification_day = int(new_notification_day)
+        db.session.commit()
+        
+        flash(f'Notification day updated to {new_notification_day} for {scheme.scheme_name}', 'success')
+        return jsonify({
+            'success': True, 
+            'message': f'Notification day updated to {new_notification_day}'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Error updating notification day'})
+
+@app.route('/dismiss_savings_notification/<int:scheme_id>', methods=['POST'])
+@login_required  
+def dismiss_savings_notification(scheme_id):
+    """Dismiss savings notification for today"""
+    from datetime import date
+    
+    # Store dismissal in session or database (optional)
+    session_key = f'dismissed_savings_{scheme_id}_{date.today()}'
+    session[session_key] = True
+    
+    return jsonify({'success': True, 'message': 'Notification dismissed for today'})
+
+@app.route('/savings_scheme_details/<int:scheme_id>')
+@login_required
+def savings_scheme_details(scheme_id):
+    scheme = SavingsScheme.query.filter_by(
+        id=scheme_id,
+        user_id=current_user.id
+    ).first_or_404()
+    
+    # Get all contributions for this scheme
+    contributions = SavingsContribution.query.filter_by(
+        scheme_id=scheme_id
+    ).order_by(SavingsContribution.contribution_date.desc()).all()
+    
+    # Calculate monthly progress
+    monthly_progress = {}
+    for contribution in contributions:
+        month_key = f"{contribution.year}-{contribution.month:02d}"
+        if month_key not in monthly_progress:
+            monthly_progress[month_key] = {
+                'month': contribution.contribution_date.strftime('%B %Y'),
+                'total': 0,
+                'contributions': []
+            }
+        monthly_progress[month_key]['total'] += contribution.amount
+        monthly_progress[month_key]['contributions'].append(contribution)
+    
+    # IMPORTANT: Get wallet, bank, and MFS accounts for forms
+    wallet = WalletBalance.query.filter_by(user_id=current_user.id).first()
+    bank_accounts = BankBalance.query.filter_by(user_id=current_user.id).all()
+    mfs_accounts = MFSBalance.query.filter_by(user_id=current_user.id).all()
+    
+    # Get today's date for template
+    from datetime import date
+    today_date = date.today().strftime('%Y-%m-%d')
+    
+    return render_template(
+        'savings_scheme_details.html',
+        scheme=scheme,
+        contributions=contributions,
+        monthly_progress=monthly_progress,
+        total_contributed=scheme.total_saved,
+        today_date=today_date,
+        wallet=wallet,
+        bank_accounts=bank_accounts,  # Make sure this is passed
+        mfs_accounts=mfs_accounts     # Make sure this is passed
+    )
+    
+@app.route('/delete_savings_scheme_with_refund', methods=['POST'])
+@login_required
+def delete_savings_scheme_with_refund():
+    try:
+        scheme_id = int(request.form.get('scheme_id'))
+        refund_account_type = request.form.get('refund_account_type')
+        delete_reason = request.form.get('delete_reason', '')
+        
+        scheme = SavingsScheme.query.filter_by(
+            id=scheme_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not scheme:
+            flash('Savings scheme not found', 'error')
+            return redirect(url_for('savings'))
+        
+        scheme_name = scheme.scheme_name
+        total_saved = scheme.total_saved
+        
+        # Process refund if there are savings
+        if total_saved > 0:
+            timestamp = datetime.now()
+            
+            if refund_account_type == 'wallet':
+                # Add to wallet
+                wallet = WalletBalance.query.filter_by(user_id=current_user.id).first()
+                if wallet:
+                    wallet.balance += total_saved
+                else:
+                    # Create wallet if doesn't exist
+                    wallet = WalletBalance(user_id=current_user.id, balance=total_saved)
+                    db.session.add(wallet)
+                
+                # Create transaction record
+                transaction = Transaction(
+                    user_id=current_user.id,
+                    amount=total_saved,
+                    transaction_type='income',
+                    category='Refund',
+                    description=f'Refund from deleted savings scheme: {scheme_name}',
+                    source_type='wallet',
+                    timestamp=timestamp
+                )
+                db.session.add(transaction)
+                
+            elif refund_account_type == 'bank':
+                bank_name = request.form.get('refund_bank_name')
+                bank_acc_no = request.form.get('refund_bank_acc_no')
+                
+                bank_account = BankBalance.query.filter_by(
+                    user_id=current_user.id,
+                    bank_name=bank_name,
+                    account_number=bank_acc_no
+                ).first()
+                
+                if bank_account:
+                    bank_account.balance += total_saved
+                    
+                    # Create transaction record
+                    transaction = Transaction(
+                        user_id=current_user.id,
+                        amount=total_saved,
+                        transaction_type='income',
+                        category='Refund',
+                        description=f'Refund from deleted savings scheme: {scheme_name}',
+                        source_type='bank',
+                        source_bank_name=bank_name,
+                        source_account_number=bank_acc_no,
+                        timestamp=timestamp
+                    )
+                    db.session.add(transaction)
+                else:
+                    flash('Selected bank account not found', 'error')
+                    return redirect(url_for('savings_scheme_details', scheme_id=scheme_id))
+                    
+            elif refund_account_type == 'mfs':
+                mfs_name = request.form.get('refund_mfs_name')
+                mfs_acc_no = request.form.get('refund_mfs_acc_no')
+                
+                mfs_account = MFSBalance.query.filter_by(
+                    user_id=current_user.id,
+                    mfs_name=mfs_name,
+                    account_no=mfs_acc_no
+                ).first()
+                
+                if mfs_account:
+                    mfs_account.balance += total_saved
+                    
+                    # Create transaction record
+                    transaction = Transaction(
+                        user_id=current_user.id,
+                        amount=total_saved,
+                        transaction_type='income',
+                        category='Refund',
+                        description=f'Refund from deleted savings scheme: {scheme_name}',
+                        source_type='mfs',
+                        source_mfs_name=mfs_name,
+                        source_mfs_number=mfs_acc_no,
+                        timestamp=timestamp
+                    )
+                    db.session.add(transaction)
+                else:
+                    flash('Selected MFS account not found', 'error')
+                    return redirect(url_for('savings_scheme_details', scheme_id=scheme_id))
+        
+        # Delete all related contributions first
+        SavingsContribution.query.filter_by(scheme_id=scheme_id).delete()
+        
+        # Delete the scheme
+        db.session.delete(scheme)
+        db.session.commit()
+        
+        if total_saved > 0:
+            flash(f'Savings scheme "{scheme_name}" deleted successfully! Amount {total_saved:.2f}/= has been refunded to your {refund_account_type} account.', 'success')
+        else:
+            flash(f'Savings scheme "{scheme_name}" deleted successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting savings scheme. Please try again.', 'error')
+        app.logger.error(f"Savings scheme deletion with refund error: {str(e)}")
+        print(f"Delete error details: {str(e)}")  # Add this for debugging
+        return redirect(url_for('savings_scheme_details', scheme_id=scheme_id))
+    
+    return redirect(url_for('savings'))
 
 if __name__ == "__main__":
     with app.app_context():

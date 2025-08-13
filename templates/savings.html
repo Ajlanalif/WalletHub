@@ -1,0 +1,1088 @@
+{% extends "base.html" %}
+{% block title %} Savings Management {% endblock %}
+{% block link %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+{% block content %}
+
+<div class="savings-master">
+    <!-- Header Section -->
+    <div class="savings-header">
+        <h1><i class="fas fa-piggy-bank"></i> Savings Management</h1>
+        <div class="header-actions">
+            <button onclick="showCreateSchemeModal()" class="create-scheme-btn">
+                <i class="fas fa-plus"></i> Create New Savings Scheme
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card total-target">
+            <i class="fas fa-bullseye"></i>
+            <div class="card-content">
+                <h3>Total Target</h3>
+                <p class="amount">{{ "%.2f"|format(total_target_amount) }}/=</p>
+            </div>
+        </div>
+        
+        <div class="summary-card total-saved">
+            <i class="fas fa-coins"></i>
+            <div class="card-content">
+                <h3>Total Saved</h3>
+                <p class="amount">{{ "%.2f"|format(total_saved_amount) }}/=</p>
+            </div>
+        </div>
+        
+        <div class="summary-card remaining">
+            <i class="fas fa-hourglass-half"></i>
+            <div class="card-content">
+                <h3>Remaining</h3>
+                <p class="amount">{{ "%.2f"|format(total_remaining_amount) }}/=</p>
+            </div>
+        </div>
+        
+        <div class="summary-card due-schemes">
+            <i class="fas fa-bell"></i>
+            <div class="card-content">
+                <h3>Due This Month</h3>
+                <p class="count">{{ due_schemes|length }} scheme(s)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Savings Schemes -->
+    {% if active_schemes %}
+    <div class="schemes-section">
+        <h2><i class="fas fa-chart-line"></i> Active Savings Schemes</h2>
+        <div class="schemes-grid">
+            {% for scheme in active_schemes %}
+            <div class="scheme-card {% if scheme.is_due_for_contribution %}due-contribution{% endif %}">
+                <div class="scheme-header">
+                    <h3>{{ scheme.scheme_name }}</h3>
+                    <div class="scheme-actions">
+                        <button onclick="showContributeModal({{ scheme.id }}, '{{ scheme.scheme_name }}')" class="contribute-btn">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <button onclick="showSchemeDetails({{ scheme.id }})" class="details-btn">
+                            <i class="fas fa-info"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="scheme-progress">
+                    <div class="progress-info">
+                        <span>{{ "%.2f"|format(scheme.total_saved) }} / {{ "%.2f"|format(scheme.target_amount) }} /=</span>
+                        <span>{{ "%.1f"|format(scheme.progress_percentage) }}%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ scheme.progress_percentage }}%"></div>
+                    </div>
+                </div>
+                
+                <div class="scheme-details">
+                    <div class="detail-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>{{ scheme.months_remaining }} months remaining</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-target"></i>
+                        <span>{{ "%.2f"|format(scheme.monthly_target) }}/= per month</span>
+                    </div>
+                    {% if scheme.is_due_for_contribution %}
+                    <div class="due-notification">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Contribution due!</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Add this section after the Active Savings Schemes and before Completed Schemes -->
+
+<!-- Inactive/Deactivated Schemes -->
+{% if inactive_schemes %}
+<div class="schemes-section">
+    <h2><i class="fas fa-pause-circle"></i> Inactive Savings Schemes</h2>
+    <div class="schemes-grid">
+        {% for scheme in inactive_schemes %}
+        <div class="scheme-card inactive">
+            <div class="scheme-header">
+                <h3>{{ scheme.scheme_name }}</h3>
+                <div class="scheme-actions">
+                    <button onclick="activateScheme({{ scheme.id }})" class="activate-btn" title="Activate Scheme">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button onclick="showSchemeDetails({{ scheme.id }})" class="details-btn">
+                        <i class="fas fa-info"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="scheme-status-info">
+                <div class="status-badge inactive-badge">
+                    <i class="fas fa-pause-circle"></i> Paused
+                </div>
+            </div>
+            
+            <div class="scheme-progress">
+                <div class="progress-info">
+                    <span>{{ "%.2f"|format(scheme.total_saved) }} / {{ "%.2f"|format(scheme.target_amount) }} /=</span>
+                    <span>{{ "%.1f"|format(scheme.progress_percentage) }}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill inactive-progress" style="width: {{ scheme.progress_percentage }}%"></div>
+                </div>
+            </div>
+            
+            <div class="scheme-details">
+                <div class="detail-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>{{ scheme.months_remaining }} months remaining</span>
+                </div>
+                <div class="detail-item">
+                    <i class="fas fa-target"></i>
+                    <span>{{ "%.2f"|format(scheme.monthly_target) }}/= per month</span>
+                </div>
+                <div class="detail-item">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Scheme is currently paused</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+    <!-- Completed Schemes -->
+    {% if completed_schemes %}
+    <div class="schemes-section">
+        <h2><i class="fas fa-check-circle"></i> Completed Schemes</h2>
+        <div class="completed-schemes">
+            {% for scheme in completed_schemes %}
+            <div class="scheme-card completed">
+                <div class="scheme-header">
+                    <h3>{{ scheme.scheme_name }}</h3>
+                    <div class="completion-badge">
+                        <i class="fas fa-trophy"></i> Completed
+                    </div>
+                </div>
+                <div class="scheme-summary">
+                    <p><strong>Target:</strong> {{ "%.2f"|format(scheme.target_amount) }}/=</p>
+                    <p><strong>Saved:</strong> {{ "%.2f"|format(scheme.total_saved) }}/=</p>
+                    <p><strong>Duration:</strong> {{ scheme.duration_months }} months</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Contributions -->
+    {% if recent_contributions %}
+    <div class="recent-contributions">
+        <h2><i class="fas fa-history"></i> Recent Contributions</h2>
+        <div class="contributions-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Scheme</th>
+                        <th>Amount</th>
+                        <th>Source</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contribution in recent_contributions %}
+                    <tr>
+                        <td>{{ contribution.contribution_date.strftime('%d %b %Y') }}</td>
+                        <td>{{ contribution.scheme.scheme_name }}</td>
+                        <td class="amount">{{ "%.2f"|format(contribution.amount) }}/=</td>
+                        <td>
+                            {% if contribution.source_type == 'wallet' %}
+                                <i class="fas fa-wallet"></i> Cash
+                            {% elif contribution.source_type == 'bank' %}
+                                <i class="fas fa-university"></i> {{ contribution.source_bank_name }}
+                            {% elif contribution.source_type == 'mfs' %}
+                                <i class="fas fa-mobile-alt"></i> {{ contribution.source_mfs_name }}
+                            {% endif %}
+                        </td>
+                        <td>{{ contribution.notes or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Scheme Modal -->
+<div id="createSchemeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Create New Savings Scheme</h3>
+            <span class="close-modal" onclick="closeCreateSchemeModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form method="POST" action="{{ url_for('add_savings_scheme') }}">
+                <div class="form-group">
+                    <label for="scheme_name">Scheme Name:</label>
+                    <input type="text" id="scheme_name" name="scheme_name" required
+                           placeholder="e.g., Emergency Fund, Vacation, New Car">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="target_amount">Target Amount (৳):</label>
+                        <input type="number" id="target_amount" name="target_amount" step="0.01" min="1" required
+                               placeholder="100000">
+                    </div>
+                    <div class="form-group half">
+                        <label for="duration_months">Duration (Months):</label>
+                        <input type="number" id="duration_months" name="duration_months" min="1" required
+                               placeholder="12" onchange="calculateMonthlyTarget()">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Monthly Target:</label>
+                    <div class="calculated-target" id="monthlyTargetDisplay">
+                        Enter target amount and duration to calculate
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="start_date">Start Date:</label>
+                        <input type="date" id="start_date" name="start_date" required
+                               value="{{ today.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="form-group half">
+                        <label for="notification_day">Notification Day:</label>
+                        <select id="notification_day" name="notification_day">
+                            {% for day in range(1, 32) %}
+                            <option value="{{ day }}" {% if day == 1 %}selected{% endif %}>{{ day }}</option>
+                            {% endfor %}
+                        </select>
+                        <small>Day of month to remind you to contribute</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Description (Optional):</label>
+                    <textarea id="description" name="description" rows="3"
+                              placeholder="Additional notes about your savings goal..."></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" onclick="closeCreateSchemeModal()" class="cancel-button">Cancel</button>
+                    <button type="submit" class="submit-button">Create Scheme</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Contribute Modal -->
+<div id="contributeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Make Contribution</h3>
+            <span class="close-modal" onclick="closeContributeModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="schemeInfo" class="scheme-info"></div>
+            
+            <form method="POST" action="{{ url_for('contribute_to_savings') }}">
+                <input type="hidden" id="contribute_scheme_id" name="scheme_id">
+                
+                <div class="form-group">
+                    <label for="contribution_amount">Contribution Amount (৳):</label>
+                    <input type="number" id="contribution_amount" name="amount" step="0.01" min="1" required
+                           placeholder="5000">
+                </div>
+                
+                <div class="form-group">
+                    <label for="contribution_account_type">Source Account:</label>
+                    <select id="contribution_account_type" name="account_type" required
+                            onchange="toggleContributeFields()">
+                        <option value="">Select Account Type</option>
+                        <option value="wallet">Cash Wallet</option>
+                        <option value="bank">Bank Account</option>
+                        <option value="mfs">Mobile Banking</option>
+                    </select>
+                </div>
+
+                <div id="contribute_bank_fields" class="account-fields hidden">
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label>Bank Name:</label>
+                            <select name="bank_name">
+                                {% for bank in bank_accounts %}
+                                <option value="{{ bank.bank_name }}">{{ bank.bank_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group half">
+                            <label>Account No:</label>
+                            <select name="bank_acc_no">
+                                {% for bank in bank_accounts %}
+                                <option value="{{ bank.account_number }}">{{ bank.account_number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="contribute_mfs_fields" class="account-fields hidden">
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label>MFS Name:</label>
+                            <select name="mfs_name">
+                                {% for mfs in mfs_accounts %}
+                                <option value="{{ mfs.mfs_name }}">{{ mfs.mfs_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group half">
+                            <label>Account No:</label>
+                            <select name="mfs_acc_no">
+                                {% for mfs in mfs_accounts %}
+                                <option value="{{ mfs.account_no }}">{{ mfs.account_no }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contribution_date">Contribution Date:</label>
+                    <input type="date" id="contribution_date" name="contribution_date" required
+                           value="{{ today.strftime('%Y-%m-%d') }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="contribution_notes">Notes (Optional):</label>
+                    <textarea id="contribution_notes" name="notes" rows="2"
+                              placeholder="Additional notes about this contribution..."></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" onclick="closeContributeModal()" class="cancel-button">Cancel</button>
+                    <button type="submit" class="submit-button">Make Contribution</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.savings-master {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+.savings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.savings-header h1 {
+    color: #28a745;
+    margin: 0;
+    font-size: 2.2em;
+}
+
+.create-scheme-btn {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1em;
+}
+
+.create-scheme-btn:hover {
+    background: linear-gradient(135deg, #0056b3, #003d82);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.summary-card {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-3px);
+}
+
+.summary-card i {
+    font-size: 2.5em;
+    margin-right: 20px;
+    opacity: 0.8;
+}
+
+.total-target i { color: #dc3545; }
+.total-saved i { color: #28a745; }
+.remaining i { color: #ffc107; }
+.due-schemes i { color: #17a2b8; }
+
+.card-content h3 {
+    margin: 0 0 8px 0;
+    color: #495057;
+    font-size: 1.1em;
+}
+
+.card-content .amount {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.card-content .count {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.schemes-section {
+    margin-bottom: 40px;
+}
+
+.schemes-section h2 {
+    color: #495057;
+    margin-bottom: 20px;
+    font-size: 1.6em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.schemes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 25px;
+}
+
+.scheme-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.scheme-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.scheme-card.due-contribution {
+    border-color: #ffc107;
+    background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);
+}
+
+.scheme-card.completed {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
+}
+
+.scheme-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.scheme-header h3 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.3em;
+}
+
+.scheme-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.contribute-btn, .details-btn {
+    width: 35px;
+    height: 35px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.contribute-btn {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.details-btn {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+    color: white;
+}
+
+.contribute-btn:hover, .details-btn:hover {
+    transform: scale(1.1);
+}
+
+.scheme-progress {
+    margin-bottom: 20px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.progress-bar {
+    height: 12px;
+    background: #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745, #20c997);
+    border-radius: 6px;
+    transition: width 0.6s ease;
+}
+
+.scheme-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #6c757d;
+    font-size: 0.95em;
+}
+
+.detail-item i {
+    width: 16px;
+    color: #28a745;
+}
+
+.due-notification {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #856404;
+    background: #fff3cd;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+.completion-badge {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.9em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.completed-schemes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.scheme-summary p {
+    margin: 8px 0;
+    color: #495057;
+}
+
+.recent-contributions {
+    margin-top: 40px;
+}
+
+.recent-contributions h2 {
+    color: #495057;
+    margin-bottom: 20px;
+    font-size: 1.6em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.contributions-table {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.contributions-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.contributions-table th {
+    background: linear-gradient(135deg, #495057, #343a40);
+    color: white;
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+}
+
+.contributions-table td {
+    padding: 15px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.contributions-table tr:hover {
+    background: #f8f9fa;
+}
+
+.contributions-table .amount {
+    font-weight: 600;
+    color: #28a745;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    animation: modalSlideIn 0.4s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    padding: 20px 25px;
+    border-radius: 15px 15px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.4em;
+}
+
+.close-modal {
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+}
+
+.close-modal:hover {
+    opacity: 0.7;
+}
+
+.modal-body {
+    padding: 25px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group.half {
+    flex: 1;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 1em;
+    transition: border-color 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: #28a745;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.calculated-target {
+    padding: 12px;
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #28a745;
+    font-size: 1.1em;
+}
+
+.account-fields.hidden {
+    display: none;
+}
+
+.scheme-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #28a745;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.cancel-button, .submit-button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1em;
+}
+
+.cancel-button {
+    background: #6c757d;
+    color: white;
+}
+
+.cancel-button:hover {
+    background: #545b62;
+}
+
+.submit-button {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.submit-button:hover {
+    background: linear-gradient(135deg, #218838, #1ea080);
+    transform: translateY(-1px);
+}
+
+.scheme-card.inactive {
+    border-color: #6c757d;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    opacity: 0.8;
+}
+
+.scheme-card.inactive:hover {
+    opacity: 1;
+}
+
+.scheme-status-info {
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.inactive-badge {
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: white;
+}
+
+.activate-btn {
+    width: 35px;
+    height: 35px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.activate-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.progress-fill.inactive-progress {
+    background: linear-gradient(90deg, #6c757d, #495057);
+    opacity: 0.7;
+}
+
+.scheme-card.inactive .detail-item:last-child {
+    color: #6c757d;
+    font-style: italic;
+}
+/* Responsive Design */
+@media (max-width: 768px) {
+    .savings-master {
+        margin: 10px;
+        padding: 15px;
+    }
+    
+    .savings-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .savings-header h1 {
+        font-size: 1.8em;
+    }
+    
+    .summary-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .schemes-grid, .completed-schemes {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .contributions-table {
+        font-size: 0.9em;
+    }
+    
+    .contributions-table th, .contributions-table td {
+        padding: 10px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .scheme-card {
+        padding: 20px;
+    }
+    
+    .modal-content {
+        margin: 2% auto;
+        width: 95%;
+    }
+    
+    .modal-body {
+        padding: 20px 15px;
+    }
+}
+</style>
+
+<script>
+// Modal functions
+function showCreateSchemeModal() {
+    document.getElementById('createSchemeModal').style.display = 'block';
+    calculateMonthlyTarget();
+}
+
+function closeCreateSchemeModal() {
+    document.getElementById('createSchemeModal').style.display = 'none';
+    document.getElementById('createSchemeModal').querySelector('form').reset();
+}
+
+function showContributeModal(schemeId, schemeName) {
+    document.getElementById('contribute_scheme_id').value = schemeId;
+    document.getElementById('schemeInfo').innerHTML = `
+        <h4><i class="fas fa-piggy-bank"></i> Contributing to: ${schemeName}</h4>
+        <p>Enter the amount you want to contribute to this savings scheme.</p>
+    `;
+    document.getElementById('contributeModal').style.display = 'block';
+}
+
+function closeContributeModal() {
+    document.getElementById('contributeModal').style.display = 'none';
+    document.getElementById('contributeModal').querySelector('form').reset();
+    // Hide account fields
+    document.getElementById('contribute_bank_fields').classList.add('hidden');
+    document.getElementById('contribute_mfs_fields').classList.add('hidden');
+}
+
+function calculateMonthlyTarget() {
+    const targetAmount = parseFloat(document.getElementById('target_amount').value) || 0;
+    const durationMonths = parseInt(document.getElementById('duration_months').value) || 0;
+    const monthlyTargetDisplay = document.getElementById('monthlyTargetDisplay');
+    
+    if (targetAmount > 0 && durationMonths > 0) {
+        const monthlyTarget = (targetAmount / durationMonths).toFixed(2);
+        monthlyTargetDisplay.textContent = `${monthlyTarget}/= per month`;
+        monthlyTargetDisplay.style.color = '#28a745';
+        monthlyTargetDisplay.style.fontWeight = 'bold';
+    } else {
+        monthlyTargetDisplay.textContent = 'Enter target amount and duration to calculate';
+        monthlyTargetDisplay.style.color = '#6c757d';
+        monthlyTargetDisplay.style.fontWeight = 'normal';
+    }
+}
+
+function toggleContributeFields() {
+    const accountType = document.getElementById('contribution_account_type').value;
+    const bankFields = document.getElementById('contribute_bank_fields');
+    const mfsFields = document.getElementById('contribute_mfs_fields');
+
+    bankFields.classList.add('hidden');
+    mfsFields.classList.add('hidden');
+
+    if (accountType === 'bank') {
+        bankFields.classList.remove('hidden');
+    } else if (accountType === 'mfs') {
+        mfsFields.classList.remove('hidden');
+    }
+}
+
+function showSchemeDetails(schemeId) {
+    window.location.href = `/savings_scheme_details/${schemeId}`;
+}
+
+function activateScheme(schemeId) {
+    if (confirm('Are you sure you want to activate this savings scheme?')) {
+        // Create a form to submit the activation
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/toggle_savings_scheme/${schemeId}`;
+        
+        // Add CSRF token if you're using one
+        const csrfToken = document.querySelector('meta[name=csrf-token]');
+        if (csrfToken) {
+            const tokenField = document.createElement('input');
+            tokenField.type = 'hidden';
+            tokenField.name = 'csrf_token';
+            tokenField.value = csrfToken.getAttribute('content');
+            form.appendChild(tokenField);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const createModal = document.getElementById('createSchemeModal');
+    const contributeModal = document.getElementById('contributeModal');
+    
+    if (event.target === createModal) {
+        closeCreateSchemeModal();
+    }
+    if (event.target === contributeModal) {
+        closeContributeModal();
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners for target calculation
+    document.getElementById('target_amount').addEventListener('input', calculateMonthlyTarget);
+    document.getElementById('duration_months').addEventListener('input', calculateMonthlyTarget);
+});
+</script>
+
+{% endblock %}

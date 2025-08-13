@@ -1,0 +1,1401 @@
+{% extends "base.html" %}
+{% block title %} {{ scheme.scheme_name }} - Details {% endblock %}
+{% block link %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+{% block content %}
+<!-- Add Account Data JSON Structure -->
+<script type="application/json" id="bank-account-data">
+{
+    {% for bank_name in bank_accounts|map(attribute='bank_name')|unique %}
+    "{{ bank_name }}": [
+        {% for bank in bank_accounts if bank.bank_name == bank_name %}
+        {% if not loop.first %},{% endif %}
+        {
+            "number": "{{ bank.account_number }}",
+            "display": "{{ bank.account_number }}",
+            "balance": {{ bank.balance }}
+        }
+        {% endfor %}
+    ]{% if not loop.last %},{% endif %}
+    {% endfor %}
+}
+</script>
+
+<script type="application/json" id="mfs-account-data">
+{
+    {% for mfs_name in mfs_accounts|map(attribute='mfs_name')|unique %}
+    "{{ mfs_name }}": [
+        {% for mfs in mfs_accounts if mfs.mfs_name == mfs_name %}
+        {% if not loop.first %},{% endif %}
+        {
+            "number": "{{ mfs.account_no }}",
+            "display": "{{ mfs.account_no }}",
+            "balance": {{ mfs.balance }}
+        }
+        {% endfor %}
+    ]{% if not loop.last %},{% endif %}
+    {% endfor %}
+}
+</script>
+
+<div class="scheme-details-master">
+    <!-- Header -->
+    <div class="details-header">
+        <div class="breadcrumb">
+            <a href="{{ url_for('savings') }}"><i class="fas fa-arrow-left"></i> Back to Savings</a>
+        </div>
+        <h1><i class="fas fa-piggy-bank"></i> {{ scheme.scheme_name }}</h1>
+        <div class="scheme-status">
+            {% if scheme.is_completed %}
+                <span class="status-badge completed"><i class="fas fa-trophy"></i> Completed</span>
+            {% elif scheme.is_active %}
+                <span class="status-badge active"><i class="fas fa-play-circle"></i> Active</span>
+            {% else %}
+                <span class="status-badge inactive"><i class="fas fa-pause-circle"></i> Inactive</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Scheme Overview -->
+    <div class="scheme-overview">
+        <div class="overview-cards">
+            <div class="overview-card">
+                <i class="fas fa-bullseye"></i>
+                <div class="card-content">
+                    <h3>Target Amount</h3>
+                    <p class="amount">{{ "%.2f"|format(scheme.target_amount) }}/=</p>
+                </div>
+            </div>
+            
+            <div class="overview-card">
+                <i class="fas fa-coins"></i>
+                <div class="card-content">
+                    <h3>Amount Saved</h3>
+                    <p class="amount saved">{{ "%.2f"|format(scheme.total_saved) }}/=</p>
+                </div>
+            </div>
+            
+            <div class="overview-card">
+                <i class="fas fa-hourglass-half"></i>
+                <div class="card-content">
+                    <h3>Remaining</h3>
+                    <p class="amount remaining">{{ "%.2f"|format(scheme.remaining_amount) }}/=</p>
+                </div>
+            </div>
+            
+            <div class="overview-card">
+                <i class="fas fa-calendar-alt"></i>
+                <div class="card-content">
+                    <h3>Duration</h3>
+                    <p class="duration">{{ scheme.duration_months }} months</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="main-progress">
+            <div class="progress-header">
+                <h3>Overall Progress</h3>
+                <span class="progress-percentage">{{ "%.1f"|format(scheme.progress_percentage) }}%</span>
+            </div>
+            <div class="progress-bar-large">
+                <div class="progress-fill" style="width: {{ scheme.progress_percentage }}%"></div>
+            </div>
+            <div class="progress-details">
+                <span>Started: {{ scheme.start_date.strftime('%d %b %Y') }}</span>
+                <span>Target: {{ scheme.end_date.strftime('%d %b %Y') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scheme Information -->
+    <div class="scheme-info-section">
+        <h2><i class="fas fa-info-circle"></i> Scheme Information</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Monthly Target:</label>
+                <span>{{ "%.2f"|format(scheme.monthly_target) }}/=</span>
+            </div>
+            <div class="info-item">
+                <label>Notification Day:</label>
+                <span>{{ scheme.notification_day }}{{ 'st' if scheme.notification_day == 1 or scheme.notification_day == 21 or scheme.notification_day == 31 else 'nd' if scheme.notification_day == 2 or scheme.notification_day == 22 else 'rd' if scheme.notification_day == 3 or scheme.notification_day == 23 else 'th' }} of each month</span>
+            </div>
+            <div class="info-item">
+                <label>Start Date:</label>
+                <span>{{ scheme.start_date.strftime('%d %B %Y') }}</span>
+            </div>
+            <div class="info-item">
+                <label>End Date:</label>
+                <span>{{ scheme.end_date.strftime('%d %B %Y') }}</span>
+            </div>
+            <div class="info-item">
+                <label>Months Remaining:</label>
+                <span>{{ scheme.months_remaining }} months</span>
+            </div>
+            <div class="info-item">
+                <label>Created:</label>
+                <span>{{ scheme.created_at.strftime('%d %B %Y') }}</span>
+            </div>
+        </div>
+        
+        {% if scheme.description %}
+        <div class="description-section">
+            <h3>Description</h3>
+            <p>{{ scheme.description }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Monthly Progress -->
+    {% if monthly_progress %}
+    <div class="monthly-progress-section">
+        <h2><i class="fas fa-chart-bar"></i> Monthly Progress</h2>
+        <div class="monthly-cards">
+            {% for month_key, month_data in monthly_progress.items() %}
+            <div class="monthly-card">
+                <h4>{{ month_data.month }}</h4>
+                <div class="monthly-amount">{{ "%.2f"|format(month_data.total) }}/=</div>
+                <div class="monthly-target-comparison">
+                    {% set monthly_percentage = (month_data.total / scheme.monthly_target * 100) if scheme.monthly_target > 0 else 0 %}
+                    <div class="mini-progress-bar">
+                        <div class="mini-progress-fill" style="width: {{ [monthly_percentage, 100]|min }}%"></div>
+                    </div>
+                    <small>{{ "%.0f"|format(monthly_percentage) }}% of monthly target</small>
+                </div>
+                <div class="contributions-count">
+                    {{ month_data.contributions|length }} contribution(s)
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Contributions History -->
+    {% if contributions %}
+    <div class="contributions-section">
+        <h2><i class="fas fa-history"></i> Contributions History</h2>
+        <div class="contributions-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Source Account</th>
+                        <th>Notes</th>
+                        <th>Month/Year</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contribution in contributions %}
+                    <tr>
+                        <td>{{ contribution.contribution_date.strftime('%d %b %Y') }}</td>
+                        <td class="amount">{{ "%.2f"|format(contribution.amount) }}/=</td>
+                        <td>
+                            {% if contribution.source_type == 'bank' %}
+                                <i class="fas fa-university"></i> {{ contribution.source_bank_name or 'Bank' }} - {{ contribution.source_account_number or 'N/A' }}
+                            {% elif contribution.source_type == 'mfs' %}
+                                <i class="fas fa-mobile-alt"></i> {{ contribution.source_mfs_name or 'MFS' }} - {{ contribution.source_mfs_number or 'N/A' }}
+                            {% else %}
+                                <i class="fas fa-wallet"></i> Cash Wallet
+                            {% endif %}
+                        </td>
+                        <td>{{ contribution.notes or 'No notes' }}</td>
+                        <td>{{ contribution.contribution_date.strftime('%b %Y') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="actions-section">
+        {% if not scheme.is_completed %}
+        <div class="action-buttons">
+            <button onclick="showContributeModal()" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Add Contribution
+            </button>
+            
+            <button onclick="showEditModal()" class="btn btn-secondary">
+                <i class="fas fa-edit"></i> Edit Scheme
+            </button>
+            
+            {% if scheme.is_active %}
+                <button onclick="toggleSchemeStatus('pause')" class="btn btn-warning">
+                    <i class="fas fa-pause"></i> Pause Scheme
+                </button>
+            {% else %}
+                <button onclick="toggleSchemeStatus('activate')" class="btn btn-success">
+                    <i class="fas fa-play"></i> Activate Scheme
+                </button>
+            {% endif %}
+            
+            <button onclick="deleteScheme()" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Delete Scheme
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Contribution Modal -->
+<div id="contributeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-piggy-bank"></i> Add Contribution</h3>
+            <span class="close-modal" onclick="closeContributeModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <!-- FIXED: Use contribute_to_savings route -->
+            <form id="contributeForm" method="POST" action="{{ url_for('contribute_to_savings') }}">
+                <!-- Add hidden field for scheme_id -->
+                <input type="hidden" name="scheme_id" value="{{ scheme.id }}">
+                
+                <div class="form-group">
+                    <label for="amount">Contribution Amount (৳):</label>
+                    <input type="number" id="amount" name="amount" step="0.01" min="1" required
+                           placeholder="Enter amount to save">
+                    <small>Remaining to target: {{ "%.2f"|format(scheme.remaining_amount) }}/=</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="account_type">Source Account:</label>
+                    <select id="account_type" name="account_type" required onchange="updateSourceAccounts()">
+                        <option value="">Select account type</option>
+                        <option value="wallet">Cash Wallet</option>
+                        <option value="bank">Bank Account</option>
+                        <option value="mfs">Mobile Banking</option>
+                    </select>
+                </div>
+
+<div class="form-group" id="bank_account_group" style="display: none;">
+    <label for="bank_name">Bank Name:</label>
+    <select id="bank_name" name="bank_name">
+        <option value="">Select Bank</option>
+        {% for bank in bank_accounts|map(attribute='bank_name')|unique %}
+        <option value="{{ bank }}">{{ bank }}</option>
+        {% endfor %}
+    </select>
+    
+    <label for="bank_acc_no">Account Number:</label>
+    <select id="bank_acc_no" name="bank_acc_no">
+        <option value="">Select Account</option>
+    </select>
+</div>
+                
+              <!-- Enhanced MFS Account Group in Contribution Modal -->
+<div class="form-group" id="mfs_account_group" style="display: none;">
+    <label for="mfs_name">MFS Name:</label>
+    <select id="mfs_name" name="mfs_name">
+        <option value="">Select MFS</option>
+        {% for mfs in mfs_accounts|map(attribute='mfs_name')|unique %}
+        <option value="{{ mfs }}">{{ mfs }}</option>
+        {% endfor %}
+    </select>
+    
+    <label for="mfs_acc_no">Account Number:</label>
+    <select id="mfs_acc_no" name="mfs_acc_no">
+        <option value="">Select Account</option>
+    </select>
+</div>
+                <div class="form-group">
+                    <label for="contribution_date">Contribution Date:</label>
+                    <input type="date" id="contribution_date" name="contribution_date" 
+                           value="{{ today_date }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Notes (Optional):</label>
+                    <textarea id="notes" name="notes" rows="3" 
+                              placeholder="Add any notes about this contribution..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeContributeModal()" class="btn btn-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Contribution</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Scheme Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> Edit Savings Scheme</h3>
+            <span class="close-modal" onclick="closeEditModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editForm" method="POST" action="{{ url_for('savings') }}">
+                <input type="hidden" name="edit_scheme_id" value="{{ scheme.id }}">
+                <input type="hidden" name="action" value="edit_scheme">
+                
+                <div class="form-group">
+                    <label for="edit_scheme_name">Scheme Name:</label>
+                    <input type="text" id="edit_scheme_name" name="scheme_name" 
+                           value="{{ scheme.scheme_name }}" required maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_target_amount">Target Amount (৳):</label>
+                    <input type="number" id="edit_target_amount" name="target_amount" 
+                           value="{{ scheme.target_amount }}" step="0.01" min="1" max="10000000" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_duration_months">Duration (Months):</label>
+                    <input type="number" id="edit_duration_months" name="duration_months" 
+                           value="{{ scheme.duration_months }}" min="1" max="120" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_notification_day">Notification Day:</label>
+                    <input type="number" id="edit_notification_day" name="notification_day" 
+                           value="{{ scheme.notification_day }}" min="1" max="28" required>
+                    <small>Day of month to receive saving reminders (1-28)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_description">Description (Optional):</label>
+                    <textarea id="edit_description" name="description" rows="3" maxlength="500">{{ scheme.description or '' }}</textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeEditModal()" class="btn btn-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Scheme</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Refund Modal for Scheme Deletion -->
+<div id="refundModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-exclamation-triangle"></i> Delete Scheme & Refund</h3>
+            <span class="close-modal" onclick="closeRefundModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="refund-info">
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>This scheme has contributions totaling {{ "%.2f"|format(scheme.total_saved) }}/=</strong>
+                    <p>When you delete this scheme, the money will be refunded to your selected account.</p>
+                </div>
+            </div>
+            
+            <form id="deleteRefundForm" method="POST" action="{{ url_for('delete_savings_scheme_with_refund') }}">
+                <input type="hidden" name="scheme_id" value="{{ scheme.id }}">
+                
+                <div class="form-group">
+                    <label for="refund_account_type">Refund to Account:</label>
+                    <select id="refund_account_type" name="refund_account_type" required onchange="updateRefundAccounts()">
+                        <option value="">Select where to refund money</option>
+                        <option value="wallet">Cash Wallet</option>
+                        <option value="bank">Bank Account</option>
+                        <option value="mfs">Mobile Banking</option>
+                    </select>
+                </div>
+
+               <div class="form-group" id="refund_bank_group" style="display: none;">
+    <label for="refund_bank_name">Bank Name:</label>
+    <select id="refund_bank_name" name="refund_bank_name">
+        <option value="">Select Bank</option>
+        {% for bank in bank_accounts|map(attribute='bank_name')|unique %}
+        <option value="{{ bank }}">{{ bank }}</option>
+        {% endfor %}
+    </select>
+    
+    <label for="refund_bank_acc_no">Account Number:</label>
+    <select id="refund_bank_acc_no" name="refund_bank_acc_no">
+        <option value="">Select Account</option>
+    </select>
+</div>
+
+<!-- Enhanced Refund MFS Account Group -->
+<div class="form-group" id="refund_mfs_group" style="display: none;">
+    <label for="refund_mfs_name">MFS Name:</label>
+    <select id="refund_mfs_name" name="refund_mfs_name">
+        <option value="">Select MFS</option>
+        {% for mfs in mfs_accounts|map(attribute='mfs_name')|unique %}
+        <option value="{{ mfs }}">{{ mfs }}</option>
+        {% endfor %}
+    </select>
+    
+    <label for="refund_mfs_acc_no">Account Number:</label>
+    <select id="refund_mfs_acc_no" name="refund_mfs_acc_no">
+        <option value="">Select Account</option>
+    </select>
+</div>
+                <div class="form-group">
+                    <label for="delete_reason">Reason for deletion (Optional):</label>
+                    <textarea id="delete_reason" name="delete_reason" rows="3" 
+                              placeholder="Why are you deleting this scheme?"></textarea>
+                </div>
+
+                <div class="refund-summary">
+                    <h4>Refund Summary:</h4>
+                    <div class="summary-item">
+                        <span>Amount to refund:</span>
+                        <strong>{{ "%.2f"|format(scheme.total_saved) }}/=</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span>Total contributions:</span>
+                        <strong>{{ contributions|length }} transactions</strong>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" onclick="closeRefundModal()" class="btn btn-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-danger" onclick="return confirmDelete()">
+                        <i class="fas fa-trash"></i> Delete & Refund
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<style>
+/* Scheme Details Specific Styles */
+.scheme-details-master {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Header Styles */
+.details-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    position: relative;
+}
+
+.breadcrumb {
+    margin-bottom: 15px;
+}
+
+.breadcrumb a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.breadcrumb a:hover {
+    color: white;
+}
+
+.details-header h1 {
+    margin: 0 0 15px 0;
+    font-size: 2.5em;
+    font-weight: 700;
+}
+
+.scheme-status {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+}
+
+.status-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.status-badge.completed {
+    background: #28a745;
+    color: white;
+}
+
+.status-badge.active {
+    background: #17a2b8;
+    color: white;
+}
+
+.status-badge.inactive {
+    background: #6c757d;
+    color: white;
+}
+
+/* Overview Cards */
+.scheme-overview {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.overview-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.overview-card {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+    border-left: 4px solid #007bff;
+    transition: transform 0.3s ease;
+}
+
+.overview-card:hover {
+    transform: translateY(-5px);
+}
+
+.overview-card i {
+    font-size: 2.5em;
+    color: #007bff;
+    margin-bottom: 15px;
+}
+
+.overview-card h3 {
+    margin: 0 0 10px 0;
+    color: #495057;
+    font-size: 1em;
+    font-weight: 600;
+}
+
+.overview-card .amount {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.overview-card .amount.saved {
+    color: #28a745;
+}
+
+.overview-card .amount.remaining {
+    color: #dc3545;
+}
+
+.overview-card .duration {
+    font-size: 1.5em;
+    font-weight: 700;
+    color: #6f42c1;
+    margin: 0;
+}
+
+/* Main Progress Bar */
+.main-progress {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 12px;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.progress-header h3 {
+    margin: 0;
+    color: #495057;
+}
+
+.progress-percentage {
+    font-size: 1.5em;
+    font-weight: 700;
+    color: #007bff;
+}
+
+.progress-bar-large {
+    width: 100%;
+    height: 30px;
+    background: #dee2e6;
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745, #20c997);
+    transition: width 0.8s ease;
+}
+
+.progress-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+    color: #6c757d;
+}
+
+/* Scheme Information */
+.scheme-info-section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.scheme-info-section h2 {
+    color: #495057;
+    margin-bottom: 25px;
+    font-size: 1.5em;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.info-item label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.info-item span {
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.description-section {
+    background: #e3f2fd;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #2196f3;
+}
+
+.description-section h3 {
+    margin-top: 0;
+    color: #1976d2;
+}
+
+/* Monthly Progress */
+.monthly-progress-section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.monthly-progress-section h2 {
+    color: #495057;
+    margin-bottom: 25px;
+    font-size: 1.5em;
+}
+
+.monthly-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.monthly-card {
+    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    border-top: 4px solid #ff9800;
+}
+
+.monthly-card h4 {
+    margin: 0 0 15px 0;
+    color: #e65100;
+    font-size: 1.2em;
+}
+
+.monthly-amount {
+    font-size: 1.5em;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.mini-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 10px 0 5px 0;
+}
+
+.mini-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff9800, #f57c00);
+}
+
+.contributions-count {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-top: 10px;
+}
+
+/* Contributions Table */
+.contributions-section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.contributions-section h2 {
+    color: #495057;
+    margin-bottom: 25px;
+    font-size: 1.5em;
+}
+
+.contributions-table {
+    overflow-x: auto;
+}
+
+.contributions-table table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.contributions-table th,
+.contributions-table td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.contributions-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+}
+
+.contributions-table td.amount {
+    font-weight: 700;
+    color: #28a745;
+}
+
+.contributions-table tr:hover {
+    background: #f8f9fa;
+}
+
+/* Action Buttons */
+.actions-section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1em;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: white;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+    color: white;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+    color: #212529;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545, #bd2130);
+    color: white;
+}
+
+.btn-cancel {
+    background: #6c757d;
+    color: white;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.modal.show {
+    display: block !important;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    animation: slideDown 0.3s ease-in-out;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+@keyframes slideDown {
+    from { 
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to { 
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.3em;
+}
+
+.close-modal {
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    color: white;
+    opacity: 0.8;
+}
+
+.close-modal:hover {
+    opacity: 1;
+}
+
+.modal-body {
+    padding: 30px;
+}
+.alert {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
+}
+
+.alert i {
+    margin-right: 10px;
+}
+
+.refund-info {
+    margin-bottom: 25px;
+}
+
+.refund-summary {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    border-left: 4px solid #007bff;
+}
+
+.refund-summary h4 {
+    margin-top: 0;
+    color: #495057;
+    margin-bottom: 15px;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+.summary-item span {
+    color: #6c757d;
+}
+
+.summary-item strong {
+    color: #2c3e50;
+}
+.form-group {
+    margin-bottom: 20px;
+}
+/* Enhanced Select Styling */
+.form-group select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
+    padding-right: 40px;
+}
+
+.form-group select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Account Balance Display */
+.form-group select option {
+    padding: 8px;
+}
+
+/* Loading State */
+.form-group select:disabled {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+}
+
+.form-group select.loading {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M10 3v3m6 1l-3 3M10 17v-3M4 10l3-3m3 3a3 3 0 100-6 3 3 0 000 6z'/%3e%3c/svg%3e");
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 1em;
+    transition: border-color 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    margin-top: 30px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .scheme-details-master {
+        padding: 15px;
+    }
+    
+    .details-header {
+        padding: 20px 15px;
+        text-align: center;
+    }
+    
+    .scheme-status {
+        position: static;
+        margin-top: 15px;
+    }
+    
+    .details-header h1 {
+        font-size: 2em;
+    }
+    
+    .overview-cards {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    
+    .overview-card {
+        padding: 20px;
+    }
+    
+    .overview-card .amount {
+        font-size: 1.5em;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .monthly-cards {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+</style>
+<script>
+// Global account data object
+window.ACCOUNT_DATA = {
+    bankAccounts: {},
+    mfsAccounts: {}
+};
+
+// Initialize account data when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Parse JSON data from hidden elements
+    try {
+        const bankAccountJson = document.getElementById('bank-account-data').textContent.trim();
+        const mfsAccountJson = document.getElementById('mfs-account-data').textContent.trim();
+
+        window.ACCOUNT_DATA.bankAccounts = JSON.parse(bankAccountJson);
+        window.ACCOUNT_DATA.mfsAccounts = JSON.parse(mfsAccountJson);
+        
+        console.log('Bank accounts loaded:', Object.keys(window.ACCOUNT_DATA.bankAccounts).length);
+        console.log('MFS accounts loaded:', Object.keys(window.ACCOUNT_DATA.mfsAccounts).length);
+        
+        // Log the actual data for debugging
+        console.log('Bank account data:', window.ACCOUNT_DATA.bankAccounts);
+        console.log('MFS account data:', window.ACCOUNT_DATA.mfsAccounts);
+    } catch (e) {
+        console.error("Error parsing account data:", e);
+    }
+    
+    // FIXED: Initialize bank selects with proper event listeners
+    const bankSelects = document.querySelectorAll('#bank_name, #refund_bank_name');
+    bankSelects.forEach(select => {
+        console.log('Setting up bank select:', select.id);
+        select.addEventListener('change', function() {
+            console.log('Bank select changed:', this.value);
+            updateAccountNumbers(this, 'bank');
+        });
+    });
+    
+    // FIXED: Initialize MFS selects with proper event listeners  
+    const mfsSelects = document.querySelectorAll('#mfs_name, #refund_mfs_name');
+    mfsSelects.forEach(select => {
+        console.log('Setting up MFS select:', select.id);
+        select.addEventListener('change', function() {
+            console.log('MFS select changed:', this.value);
+            updateAccountNumbers(this, 'mfs');
+        });
+    });
+});
+
+// FIXED: Universal function to update account numbers
+function updateAccountNumbers(selectElement, accountType) {
+    const name = selectElement.value;
+    console.log(`updateAccountNumbers called with: ${accountType}, value: ${name}`);
+    
+    if (!name) {
+        console.warn(`No ${accountType} name selected`);
+        return;
+    }
+    
+    console.log(`Updating ${accountType} accounts for: ${name}`);
+    
+    // Find the corresponding account number select
+    let accNoSelect;
+    const selectId = selectElement.id;
+    
+    if (accountType === 'bank') {
+        if (selectId === 'bank_name') {
+            accNoSelect = document.getElementById('bank_acc_no');
+        } else if (selectId === 'refund_bank_name') {
+            accNoSelect = document.getElementById('refund_bank_acc_no');
+        }
+    } else if (accountType === 'mfs') {
+        if (selectId === 'mfs_name') {
+            accNoSelect = document.getElementById('mfs_acc_no');
+        } else if (selectId === 'refund_mfs_name') {
+            accNoSelect = document.getElementById('refund_mfs_acc_no');
+        }
+    }
+    
+    if (!accNoSelect) {
+        console.error(`Could not find account number select for ${accountType}, selectId: ${selectId}`);
+        return;
+    }
+    
+    console.log(`Found account number select: ${accNoSelect.id}`);
+    
+    // Clear existing options
+    accNoSelect.innerHTML = '';
+    
+    // Add default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Select Account';
+    accNoSelect.appendChild(defaultOption);
+    
+    // Add new options based on selected account
+    const accountData = accountType === 'bank' 
+        ? window.ACCOUNT_DATA.bankAccounts[name] 
+        : window.ACCOUNT_DATA.mfsAccounts[name];
+    
+    console.log(`Account data for ${name}:`, accountData);
+            
+    if (accountData && accountData.length > 0) {
+        accountData.forEach((acc, index) => {
+            console.log(`Adding account option ${index}:`, acc);
+            const option = document.createElement('option');
+            option.value = acc.number;
+            option.textContent = `${acc.display} (Balance: ${acc.balance.toFixed(2)}/=)`;
+            accNoSelect.appendChild(option);
+        });
+        console.log(`Added ${accountData.length} account options for ${name}`);
+    } else {
+        console.warn(`No accounts found for ${accountType}: ${name}`);
+        console.log('Available account names:', Object.keys(accountType === 'bank' ? window.ACCOUNT_DATA.bankAccounts : window.ACCOUNT_DATA.mfsAccounts));
+    }
+}
+
+// Modal Functions
+function showContributeModal() {
+    document.getElementById('contributeModal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeContributeModal() {
+    document.getElementById('contributeModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+function showEditModal() {
+    document.getElementById('editModal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+function showRefundModal() {
+    document.getElementById('refundModal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeRefundModal() {
+    document.getElementById('refundModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+// Enhanced Account Type Toggle Functions
+function updateSourceAccounts() {
+    const accountType = document.getElementById('account_type').value;
+    const bankGroup = document.getElementById('bank_account_group');
+    const mfsGroup = document.getElementById('mfs_account_group');
+    
+    console.log('updateSourceAccounts called, account type:', accountType);
+    
+    // Hide all account groups first
+    if (bankGroup) bankGroup.style.display = 'none';
+    if (mfsGroup) mfsGroup.style.display = 'none';
+    
+    // Show relevant account group
+    if (accountType === 'bank' && bankGroup) {
+        bankGroup.style.display = 'block';
+        console.log('Showing bank group');
+    } else if (accountType === 'mfs' && mfsGroup) {
+        mfsGroup.style.display = 'block';
+        console.log('Showing MFS group');
+    }
+}
+
+function updateRefundAccounts() {
+    const accountType = document.getElementById('refund_account_type').value;
+    const bankGroup = document.getElementById('refund_bank_group');
+    const mfsGroup = document.getElementById('refund_mfs_group');
+    
+    console.log('updateRefundAccounts called, account type:', accountType);
+    
+    // Hide all account groups first
+    if (bankGroup) bankGroup.style.display = 'none';
+    if (mfsGroup) mfsGroup.style.display = 'none';
+    
+    // Show relevant account group
+    if (accountType === 'bank' && bankGroup) {
+        bankGroup.style.display = 'block';
+        console.log('Showing refund bank group');
+    } else if (accountType === 'mfs' && mfsGroup) {
+        mfsGroup.style.display = 'block';
+        console.log('Showing refund MFS group');
+    }
+}
+
+// Delete Scheme Function
+function deleteScheme() {
+    const schemeId = {{ scheme.id }};
+    const totalSaved = {{ scheme.total_saved }};
+    
+    if (totalSaved > 0) {
+        showRefundModal();
+    } else {
+        if (confirm('Are you sure you want to delete this savings scheme? This action cannot be undone.')) {
+            window.location.href = `/delete_savings_scheme/${schemeId}`;
+        }
+    }
+}
+
+function confirmDelete() {
+    return confirm('Are you absolutely sure you want to delete this savings scheme and refund the money? This action cannot be undone.');
+}
+
+function toggleSchemeStatus(action) {
+    const schemeId = {{ scheme.id }};
+    const confirmMessage = action === 'pause' ? 
+        'Are you sure you want to pause this savings scheme?' : 
+        'Are you sure you want to activate this savings scheme?';
+    
+    if (confirm(confirmMessage)) {
+        window.location.href = `/toggle_savings_scheme/${schemeId}`;
+    }
+}
+
+// Close modals when clicking outside
+window.addEventListener('click', function(event) {
+    const contributeModal = document.getElementById('contributeModal');
+    const editModal = document.getElementById('editModal');
+    const refundModal = document.getElementById('refundModal');
+    
+    if (event.target === contributeModal) {
+        closeContributeModal();
+    }
+    if (event.target === editModal) {
+        closeEditModal();
+    }
+    if (event.target === refundModal) {
+        closeRefundModal();
+    }
+});
+
+// Escape key to close modals
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeContributeModal();
+        closeEditModal();
+        closeRefundModal();
+    }
+});
+
+// DEBUG: Test function to check account data
+function debugAccountData() {
+    console.log('=== DEBUG ACCOUNT DATA ===');
+    console.log('Bank accounts:', window.ACCOUNT_DATA.bankAccounts);
+    console.log('MFS accounts:', window.ACCOUNT_DATA.mfsAccounts);
+    console.log('Bank account names:', Object.keys(window.ACCOUNT_DATA.bankAccounts));
+    console.log('MFS account names:', Object.keys(window.ACCOUNT_DATA.mfsAccounts));
+    
+    // Test a specific bank
+    const firstBankName = Object.keys(window.ACCOUNT_DATA.bankAccounts)[0];
+    if (firstBankName) {
+        console.log(`First bank "${firstBankName}" accounts:`, window.ACCOUNT_DATA.bankAccounts[firstBankName]);
+    }
+}
+</script>
+
+{% endblock %}
