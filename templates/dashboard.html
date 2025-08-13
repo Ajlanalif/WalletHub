@@ -547,21 +547,38 @@
         </div>
     </div>
 </div>
-<div id="budgetModal" class="modal">
+<div id="budgetModal" class="modal budget-required-modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Set Monthly Budget</h3>
+            {% if not budget %}
+            <h3>🎯 Set Your Monthly Budget</h3>
+            {% else %}
+            <h3>Update Monthly Budget</h3>
+            {% endif %}
             <span class="close-modal" onclick="closeBudgetModal()">&times;</span>
         </div>
         <div class="modal-body">
-            <p>Set your budget for {{ month_name }} {{ current_year }}</p>
+            {% if not budget %}
+            <div class="welcome-message">
+                <p><strong>Welcome to WalletHub!</strong></p>
+                <p>To get the most out of your financial tracking, let's set up your monthly budget for {{ month_name }} {{ current_year }}.</p>
+                <p>This will help you:</p>
+                <ul style="text-align: left; margin: 15px 0;">
+                    <li>📊 Track your spending progress</li>
+                    <li>⚠️ Get alerts when approaching budget limits</li>
+                    <li>📈 Better manage your finances</li>
+                </ul>
+            </div>
+            {% else %}
+            <p>Update your budget for {{ month_name }} {{ current_year }}</p>
+            {% endif %}
             
             <form id="budgetForm" method="POST" action="{{ url_for('set_budget') }}">
                 <input type="hidden" name="month" value="{{ current_month }}">
                 <input type="hidden" name="year" value="{{ current_year }}">
                 
                 <div class="form-group">
-                    <label for="budget_amount">Budget Amount (৳):</label>
+                    <label for="budget_amount">Monthly Budget Amount (৳):</label>
                     <input type="number" id="budget_amount" name="amount" step="0.01" min="1" required
                            placeholder="Enter your monthly budget" 
                            {% if budget %}value="{{ budget }}"{% endif %}>
@@ -575,14 +592,18 @@
                         <button type="button" onclick="setBudgetAmount(20000)">20,000/=</button>
                         <button type="button" onclick="setBudgetAmount(30000)">30,000/=</button>
                         <button type="button" onclick="setBudgetAmount(50000)">50,000/=</button>
+                        <button type="button" onclick="setBudgetAmount(100000)">1,00,000/=</button>
                     </div>
                 </div>
                 
                 <div class="form-actions">
+                    {% if not budget %}
+                    <button type="button" onclick="skipBudget()" class="cancel-button">Skip for Now</button>
+                    <button type="submit" class="submit-button primary">Set My Budget</button>
+                    {% else %}
                     <button type="button" onclick="closeBudgetModal()" class="cancel-button">Cancel</button>
-                    <button type="submit" class="submit-button">
-                        {% if budget %}Update Budget{% else %}Set Budget{% endif %}
-                    </button>
+                    <button type="submit" class="submit-button">Update Budget</button>
+                    {% endif %}
                 </div>
             </form>
         </div>
@@ -907,6 +928,15 @@
 }
 
 .budget-summary {
+        max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.4s ease-out, opacity 0.4s ease-out, padding 0.4s ease-out;
+    padding: 0 20px;
+}
+.budget-summary.expanded {
+    max-height: 100px;
+    opacity: 1;
     padding: 10px 20px;
 }
 
@@ -1082,6 +1112,56 @@
             transform: translateY(0);
         }
     }
+    /* Enhanced Budget Modal for First Time Users */
+.budget-required-modal .modal-content {
+    border: 3px solid #007bff;
+    box-shadow: 0 8px 32px rgba(0,123,255,0.3);
+}
+
+.budget-required-modal .modal-header {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    padding: 20px;
+}
+
+.budget-required-modal .modal-header h3 {
+    font-size: 1.4em;
+    margin: 0;
+}
+
+.welcome-message {
+    background: linear-gradient(135deg, #e3f2fd, #f8f9fa);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #007bff;
+}
+
+.welcome-message p {
+    margin: 8px 0;
+    color: #333;
+}
+
+.welcome-message ul {
+    color: #555;
+    padding-left: 20px;
+}
+
+.welcome-message ul li {
+    margin: 5px 0;
+    font-size: 0.95em;
+}
+
+.submit-button.primary {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    font-weight: 700;
+    padding: 12px 24px;
+    font-size: 1.1em;
+}
+
+.submit-button.primary:hover {
+    background: linear-gradient(135deg, #218838, #1ea080);
+    transform: translateY(-1px);
+}
 
     .modal-header {
         padding: 15px;
@@ -1820,6 +1900,15 @@
             
             alert(message);
         }
+        // Add this function with your other budget functions
+function skipBudget() {
+    if (confirm('Are you sure you want to skip setting a budget?\n\nYou can always set it later, but having a budget helps track your spending better.')) {
+        // Set a flag to remember user skipped budget (optional)
+        localStorage.setItem('budgetSkipped', 'true');
+        localStorage.setItem('budgetSkippedDate', new Date().toISOString());
+        closeBudgetModal();
+    }
+}
     
         // Function to show receivable modal for any expense
         function showReceivableModal(accountType, amount, category, date, description) {
@@ -1873,17 +1962,20 @@ function setBudgetAmount(amount) {
 }
 function toggleBudgetDetails() {
     const budgetDetails = document.getElementById('budgetDetails');
+    const budgetSummary = document.querySelector('.budget-summary');
     const toggleIcon = document.getElementById('budgetToggleIcon');
     
     if (budgetDetails) {
         if (budgetDetails.classList.contains('expanded')) {
-            // Collapse
+            // Collapse both sections
             budgetDetails.classList.remove('expanded');
+            budgetSummary.classList.remove('expanded');
             toggleIcon.classList.remove('rotated');
             localStorage.setItem('budgetExpanded', 'false');
         } else {
-            // Expand
+            // Expand both sections
             budgetDetails.classList.add('expanded');
+            budgetSummary.classList.add('expanded');
             toggleIcon.classList.add('rotated');
             localStorage.setItem('budgetExpanded', 'true');
         }
@@ -1893,43 +1985,87 @@ function toggleBudgetDetails() {
         document.addEventListener('DOMContentLoaded', function () {
             console.log('DOM loaded, initializing app...');
                 const budgetDetails = document.getElementById('budgetDetails');
-    const toggleIcon = document.getElementById('budgetToggleIcon');
-    const wasExpanded = localStorage.getItem('budgetExpanded') === 'true';
-    
-    if (budgetDetails && wasExpanded) {
-        budgetDetails.classList.add('expanded');
-        if (toggleIcon) {
-            toggleIcon.classList.add('rotated');
-        }
-    }
-    
-            // Parse JSON data from hidden elements
-            try {
-                const bankAccountJson = document.getElementById('bank-account-data').textContent.trim();
-                const mfsAccountJson = document.getElementById('mfs-account-data').textContent.trim();
-    
-                window.ACCOUNT_DATA.bankAccounts = JSON.parse(bankAccountJson);
-                window.ACCOUNT_DATA.mfsAccounts = JSON.parse(mfsAccountJson);
+                const toggleIcon = document.getElementById('budgetToggleIcon');
+                const wasExpanded = localStorage.getItem('budgetExpanded') === 'true';
                 
-                console.log('Bank accounts loaded:', Object.keys(window.ACCOUNT_DATA.bankAccounts).length);
-                console.log('MFS accounts loaded:', Object.keys(window.ACCOUNT_DATA.mfsAccounts).length);
+                if (budgetDetails && wasExpanded) {
+                    budgetDetails.classList.add('expanded');
+                    if (toggleIcon) {
+                        toggleIcon.classList.add('rotated');
+                    }
+                }
+
+                {% if not budget %}
+                // Show budget modal automatically on every login when no budget is set
+                setTimeout(() => {
+                    console.log('No budget set, showing budget modal...');
+                    showBudgetModal();
+                    
+                    // Add a welcome message to the modal for first-time users
+                    const modalBody = document.querySelector('#budgetModal .modal-body p');
+                    if (modalBody) {
+                        modalBody.innerHTML = `
+                            <strong>Welcome!</strong> To get started with budget tracking, please set your monthly budget for {{ month_name }} {{ current_year }}.
+                            <br><br>
+                            This will help you track your spending and manage your finances better.
+                        `;
+                    }
+                    
+                    // Make the modal persistent (harder to dismiss accidentally)
+                    const budgetModal = document.getElementById('budgetModal');
+                    
+                    // Prevent closing by clicking outside
+                    budgetModal.addEventListener('click', function(e) {
+                        if (e.target === budgetModal) {
+                            // Show a gentle reminder instead of closing
+                            alert('Please set your monthly budget to continue. This helps track your spending effectively.');
+                            return false;
+                        }
+                    });
+                    
+                    // Modify the close button to show confirmation
+                    const closeButton = budgetModal.querySelector('.close-modal');
+                    if (closeButton) {
+                        closeButton.addEventListener('click', function(e) {
+                            if (confirm('Are you sure you want to skip setting a budget? You can always set it later from the dashboard.')) {
+                                closeBudgetModal();
+                            } else {
+                                e.preventDefault();
+                                return false;
+                            }
+                        });
+                    }
+                    
+                }, 500); // Reduced delay to 500ms for faster appearance
+                {% endif %}
                 
-                // Debug: Log the accounts for each bank/MFS
-                Object.keys(window.ACCOUNT_DATA.bankAccounts).forEach(bank => {
-                    console.log(`Bank ${bank} has accounts:`, window.ACCOUNT_DATA.bankAccounts[bank].map(acc => acc.number));
-                });
-                
-                Object.keys(window.ACCOUNT_DATA.mfsAccounts).forEach(mfs => {
-                    console.log(`MFS ${mfs} has accounts:`, window.ACCOUNT_DATA.mfsAccounts[mfs].map(acc => acc.number));
-                });
-            } catch (e) {
-                console.error("Error parsing account data:", e);
-                console.error("Bank data:", document.getElementById('bank-account-data').textContent);
-                console.error("MFS data:", document.getElementById('mfs-account-data').textContent);
-            }
-    
-            // Show expense form by default when page loads
-            showForm('expense');
+                // Parse JSON data from hidden elements
+                try {
+                    const bankAccountJson = document.getElementById('bank-account-data').textContent.trim();
+                    const mfsAccountJson = document.getElementById('mfs-account-data').textContent.trim();
+        
+                    window.ACCOUNT_DATA.bankAccounts = JSON.parse(bankAccountJson);
+                    window.ACCOUNT_DATA.mfsAccounts = JSON.parse(mfsAccountJson);
+                    
+                    console.log('Bank accounts loaded:', Object.keys(window.ACCOUNT_DATA.bankAccounts).length);
+                    console.log('MFS accounts loaded:', Object.keys(window.ACCOUNT_DATA.mfsAccounts).length);
+                    
+                    // Debug: Log the accounts for each bank/MFS
+                    Object.keys(window.ACCOUNT_DATA.bankAccounts).forEach(bank => {
+                        console.log(`Bank ${bank} has accounts:`, window.ACCOUNT_DATA.bankAccounts[bank].map(acc => acc.number));
+                    });
+                    
+                    Object.keys(window.ACCOUNT_DATA.mfsAccounts).forEach(mfs => {
+                        console.log(`MFS ${mfs} has accounts:`, window.ACCOUNT_DATA.mfsAccounts[mfs].map(acc => acc.number));
+                    });
+                } catch (e) {
+                    console.error("Error parsing account data:", e);
+                    console.error("Bank data:", document.getElementById('bank-account-data').textContent);
+                    console.error("MFS data:", document.getElementById('mfs-account-data').textContent);
+                }
+        
+                // Show expense form by default when page loads
+                showForm('expense');
     
             // Set up loan modal functionality
             const loanModal = document.getElementById('loanModal');
