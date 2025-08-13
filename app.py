@@ -266,6 +266,22 @@ class ReceivablePayment(db.Model):
     received_to_mfs_name = db.Column(db.String(150), nullable=True)
     received_to_mfs_number = db.Column(db.String(50), nullable=True)
 
+# Add this model after your existing models in app.py
+class Budget(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    month = db.Column(db.Integer, nullable=False)  # 1-12
+    year = db.Column(db.Integer, nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    user = db.relationship('User', backref=db.backref('budgets', lazy=True))
+    
+    # Ensure unique budget per user per month-year
+    __table_args__ = (db.UniqueConstraint('user_id', 'month', 'year', name='unique_user_month_budget'),)
+
 @app.context_processor
 def inject_user_details():
     """Make user_details available to all templates."""
@@ -611,10 +627,44 @@ def dashboard():
     # Get receivables due soon (next 7 days)
     due_soon_receivables = [receivable for receivable in active_receivables 
                            if receivable.expected_return_date and (receivable.expected_return_date - today).days <= 7]
+    # Get current date
+    current_date = date.today()
+    current_month = current_date.month
+    current_year = current_date.year
+    
+    # Check if budget exists for current month
+    current_budget = Budget.query.filter_by(
+        user_id=current_user.id,
+        month=current_month,
+        year=current_year
+    ).first()
+    
+    # If no budget exists, set budget to None to trigger the modal
+    budget_amount = current_budget.amount if current_budget else None
+
+    # Calculate current month's total expenses for budget comparison
+    start_date = date(current_year, current_month, 1)
+    if current_month == 12:
+        end_date = date(current_year + 1, 1, 1) - timedelta(days=1)
+    else:
+        end_date = date(current_year, current_month + 1, 1) - timedelta(days=1)
+    
+    # Get all expense transactions for the current month
+    monthly_expenses = Transaction.query.filter(
+        Transaction.user_id == current_user.id,
+        Transaction.transaction_type == 'expense',
+        func.date(Transaction.timestamp) >= start_date,
+        func.date(Transaction.timestamp) <= end_date
+    ).all()
+    
+    # Calculate total monthly expenses
+    total_monthly_expenses = round(sum(expense.amount for expense in monthly_expenses), 2)
 
 
     return render_template('dashboard.html', 
+                         user_details=user_details,
                          total_balance=total_balance,
+                         total_monthly_expenses=total_monthly_expenses,
                          bank_balance=bank_balance, 
                          mfs_balance=mfs_balance, 
                          wallet_balance=wallet_balance_amount,
@@ -626,7 +676,11 @@ def dashboard():
                          due_soon_loans=due_soon_loans,
                          active_receivables=active_receivables,
                          active_receivables_amount=active_receivables_amount,
-                         due_soon_receivables=due_soon_receivables)
+                         due_soon_receivables=due_soon_receivables,
+                         budget=budget_amount,
+                         current_month=current_month,
+                         current_year=current_year,
+                         month_name=current_date.strftime('%B'))
 
 @app.route('/bank_transactions')
 @login_required
@@ -3297,6 +3351,66 @@ def get_account_display_name(transaction, account_type):
             return f"{transaction.destination_mfs_name} - {transaction.destination_mfs_number}"
     
     return 'Unknown Account'
+
+@app.route('/set_budget', methods=['POST'])
+@login_required
+def set_budget():
+    try:
+        month = int(request.form.get('month'))
+        year = int(request.form.get('year'))
+        amount = float(request.form.get('amount'))
+        
+        if amount <= 0:
+            flash('Budget amount must be greater than 0', 'error')
+            return redirect(url_for('dashboard'))
+        
+        # Check if budget already exists for this month/year
+        existing_budget = Budget.query.filter_by(
+            user_id=current_user.id,
+            month=month,
+            year=year
+        ).first()
+        
+        if existing_budget:
+            # Update existing budget
+            existing_budget.amount = amount
+            existing_budget.updated_at = datetime.utcnow()
+            flash(f'Budget for {date(year, month, 1).strftime("%B %Y")} updated successfully!', 'success')
+        else:
+            # Create new budget
+            new_budget = Budget(
+                user_id=current_user.id,
+                month=month,
+                year=year,
+                amount=amount
+            )
+            db.session.add(new_budget)
+            flash(f'Budget for {date(year, month, 1).strftime("%B %Y")} set successfully!', 'success')
+        
+        db.session.commit()
+        
+    except ValueError:
+        flash('Invalid budget amount', 'error')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error setting budget. Please try again.', 'error')
+        app.logger.error(f"Budget setting error: {str(e)}")
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/get_budget/<int:month>/<int:year>')
+@login_required
+def get_budget(month, year):
+    budget = Budget.query.filter_by(
+        user_id=current_user.id,
+        month=month,
+        year=year
+    ).first()
+    
+    return jsonify({
+        'exists': budget is not None,
+        'amount': budget.amount if budget else 0
+    })
 
 if __name__ == "__main__":
     with app.app_context():

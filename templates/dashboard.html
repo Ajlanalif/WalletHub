@@ -9,9 +9,63 @@
 
 <div class="master">
     <div class="form-container">
-        <h1>Hello, {{ user_details.last_name }}!</h1><br><br>
-        <h2>Your Total Balance: {{ total_balance }}/=</h2>
-
+            <div class="dashboard-header">
+        <div class="user-greeting">
+            Hello, {{ user_details.last_name }}!
+        </div>
+    </div>
+    <div class="dashboard-center">
+            
+        <div class="budget-tab">
+            <h2>Your Budget - {{ month_name }} {{ current_year }}</h2>
+            <div class="budget-values">
+            <span class="budget-label">Budget:</span>
+            {% if budget %}
+                <span class="budget-amount">{{ "%.2f"|format(budget) }}/=</span>
+            {% else %}
+                <span class="budget-amount no-budget">Not Set</span>
+                <button onclick="showBudgetModal()" class="set-budget-btn">Set Budget</button>
+            {% endif %}            
+        </div>
+        {%if budget %}
+            <div class="budget-values">
+                <span class="budget-label">Remaining Balance:</span>
+                
+                {% set percent = (total_monthly_expenses / budget *100) if budget else 0 %}
+                <span class="remaining-amount
+               
+                    {% if percent > 80 %}
+                        green
+                    {% elif percent > 50 %}
+                        yellow
+                    {% else %}
+                        red
+                    {% endif %}
+                ">
+                {{ "%.2f"|format(budget-total_monthly_expenses) }}/=
+                </span>
+           <div class="budget-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill 
+                        {% if percent > 80 %}
+                            green
+                        {% elif percent > 50 %}
+                            yellow
+                        {% else %}
+                            red
+                        {% endif %}
+                    " style="width: {{ [percent, 100]|min }}%"></div>
+                </div>
+                <small class="progress-text">{{ "%.1f"|format(percent) }}% of budget used</small>
+            </div>
+        </div>
+        
+        <div class="budget-actions">
+            <button onclick="showBudgetModal()" class="edit-budget-btn">Edit Budget</button>
+        </div>
+        {% endif %}
+    </div>
+</div>
         <!-- Balance Tiles -->
         <div class="balance-container">
             <!-- Loan Tile - Only shows if user has active loans -->
@@ -468,6 +522,47 @@
         </div>
     </div>
 </div>
+<div id="budgetModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Set Monthly Budget</h3>
+            <span class="close-modal" onclick="closeBudgetModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>Set your budget for {{ month_name }} {{ current_year }}</p>
+            
+            <form id="budgetForm" method="POST" action="{{ url_for('set_budget') }}">
+                <input type="hidden" name="month" value="{{ current_month }}">
+                <input type="hidden" name="year" value="{{ current_year }}">
+                
+                <div class="form-group">
+                    <label for="budget_amount">Budget Amount (৳):</label>
+                    <input type="number" id="budget_amount" name="amount" step="0.01" min="1" required
+                           placeholder="Enter your monthly budget" 
+                           {% if budget %}value="{{ budget }}"{% endif %}>
+                    <small>This will help you track your spending for {{ month_name }}</small>
+                </div>
+                
+                <div class="budget-suggestions">
+                    <p><strong>Quick suggestions:</strong></p>
+                    <div class="suggestion-buttons">
+                        <button type="button" onclick="setBudgetAmount(10000)">10,000/=</button>
+                        <button type="button" onclick="setBudgetAmount(20000)">20,000/=</button>
+                        <button type="button" onclick="setBudgetAmount(30000)">30,000/=</button>
+                        <button type="button" onclick="setBudgetAmount(50000)">50,000/=</button>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" onclick="closeBudgetModal()" class="cancel-button">Cancel</button>
+                    <button type="submit" class="submit-button">
+                        {% if budget %}Update Budget{% else %}Set Budget{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 </div>
 <script type="text/javascript">
     // This object will be populated by Jinja template
@@ -717,6 +812,188 @@
         border-radius: 10px;
         animation: modalopen 0.4s;
     }
+    .dashboard-header {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.user-greeting {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #333;
+    background: #f8f9fa;
+    padding: 8px 18px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+.dashboard-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.budget-tab {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.09);
+    padding: 30px 40px;
+    text-align: center;
+    min-width: 320px;
+    margin: 0 auto;
+}
+
+.budget-tab h2 {
+    margin-bottom: 18px;
+    color: #007bff;
+    font-size: 1.5em;
+}
+
+.budget-values {
+    margin: 10px 0;
+    font-size: 1.1em;
+}
+
+.budget-label {
+    font-weight: 500;
+    margin-right: 10px;
+}
+
+.budget-amount {
+    font-weight: 700;
+    color: #495057;
+}
+
+.remaining-amount {
+    font-weight: 700;
+    padding: 4px 16px;
+    border-radius: 8px;
+    margin-left: 10px;
+    font-size: 1.15em;
+    transition: background 0.3s, color 0.3s;
+}
+
+.remaining-amount.green {
+    background: #eafaf1;
+    color: #28a745;
+    border: 1px solid #28a745;
+}
+.remaining-amount.yellow {
+    background: #fffbe6;
+    color: #ffc107;
+    border: 1px solid #ffc107;
+}
+.remaining-amount.red {
+    background: #fdecea;
+    color: #dc3545;
+    border: 1px solid #dc3545;
+}
+.no-budget {
+    color: #dc3545;
+    font-style: italic;
+}
+
+.set-budget-btn, .edit-budget-btn {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: all 0.3s ease;
+}
+
+.set-budget-btn:hover, .edit-budget-btn:hover {
+    background: linear-gradient(135deg, #0056b3, #003d82);
+    transform: translateY(-1px);
+}
+
+.budget-progress {
+    margin-top: 15px;
+    text-align: left;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-fill {
+    height: 100%;
+    transition: all 0.3s ease;
+    border-radius: 10px;
+}
+
+.progress-fill.green {
+    background: linear-gradient(90deg, #28a745, #34ce57);
+}
+
+.progress-fill.yellow {
+    background: linear-gradient(90deg, #ffc107, #ffcd39);
+}
+
+.progress-fill.red {
+    background: linear-gradient(90deg, #dc3545, #e4606d);
+}
+
+.progress-text {
+    font-size: 0.85em;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.budget-actions {
+    margin-top: 15px;
+    text-align: center;
+}
+
+/* Budget Modal Styles */
+.budget-suggestions {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.budget-suggestions p {
+    margin-bottom: 10px;
+    color: #495057;
+    font-size: 0.9em;
+}
+
+.suggestion-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.suggestion-buttons button {
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.suggestion-buttons button:hover {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
 
     @keyframes modalopen {
         from {
@@ -1148,7 +1425,28 @@
         padding: 12px;
     }
 }
-
+@media (max-width: 600px) {
+    .dashboard-center .budget-tab {
+        padding: 18px 8px;
+        min-width: 200px;
+    }
+    .dashboard-header .user-greeting {
+        font-size: 1em;
+        padding: 6px 10px;
+    }
+    .suggestion-buttons {
+        flex-direction: column;
+    }
+    
+    .suggestion-buttons button {
+        width: 100%;
+        padding: 10px;
+    }
+    
+    .progress-text {
+        font-size: 0.8em;
+    }
+}
 </style>
 <script type="application/json" id="bank-account-data">
     {
@@ -1449,6 +1747,22 @@
             // Display the modal
             document.getElementById('receivableModal').style.display = 'block';
         }
+        function showBudgetModal() {
+    document.getElementById('budgetModal').style.display = 'block';
+    
+    // Focus on the budget amount input
+    setTimeout(() => {
+        document.getElementById('budget_amount').focus();
+    }, 100);
+}
+
+function closeBudgetModal() {
+    document.getElementById('budgetModal').style.display = 'none';
+}
+
+function setBudgetAmount(amount) {
+    document.getElementById('budget_amount').value = amount;
+}
 
         // Main initialization when DOM is loaded
         document.addEventListener('DOMContentLoaded', function () {
@@ -1502,6 +1816,10 @@
     
             // Close modals when clicking outside
             window.addEventListener('click', function (e) {
+                const budgetModal = document.getElementById('budgetModal');
+    if (e.target === budgetModal) {
+        closeBudgetModal();
+    }
                 if (e.target === loanModal) {
                     loanModal.style.display = 'none';
                 }
@@ -1809,5 +2127,17 @@
                 });
             }
         });
+        document.addEventListener('DOMContentLoaded', function() {
+    // Check if budget is not set for current month
+    {% if not budget %}
+    // Show budget modal automatically after a short delay
+    setTimeout(() => {
+        showBudgetModal();
+    }, 1000);
+    {% endif %}
+    
+    // Existing initialization code...
+    // ... (keep your existing DOMContentLoaded code here)
+});
     </script>
 {% endblock %}
