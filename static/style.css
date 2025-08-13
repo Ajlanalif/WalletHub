@@ -166,7 +166,7 @@ nav {
 
 /* how it work section */
 #work{
-    height: 50vh;
+    padding: 60px 20px; 
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -175,14 +175,14 @@ nav {
 
 /* CTA */
 #cta-container{
-    margin: 0;
-    height: 60vh;
+    margin: 60px 0;  /* Add proper margins */
+    padding: 40px 0;
     display: flex;
     justify-content: center;
 }
 
 #cta{
-    height: 50vh;
+    padding: 40px 20px;
     width: 80vw;
     display: flex;
     flex-direction: column;
@@ -205,14 +205,16 @@ nav {
 footer{
     background-color: lavender;
     color: black;
-    height: 20vh;
+    padding: 60px 20px 40px 20px;  /* Use padding instead of fixed height */
     display: flex;
-    gap: 5px;
+    gap: 15px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-
+    margin-top: 60px;  /* Add margin for separation */
+    border-top: 1px solid #ddd;  /* Add subtle border */
 }
+
 #social-container{
     display: flex;
     gap: 5px;
@@ -407,7 +409,7 @@ footer{
     #cta-container {
         height: auto;
         margin: 20px 0;
-        padding: 0 10px;
+        padding: 20px 10px;
     }
     
     #cta {

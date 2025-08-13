@@ -3,8 +3,8 @@
 {% block content %}
 <div class="banner-container">
     <section id="banner">
-        <h1 id="bigtxt">Take Control of Your Money with WalletHub</h1>
-        <p id="midtxt">"Effortlessly track your income, expenses, and bank transfers all in one place."</p>
+        <h1 id="bigtxt">WalletHub V2.0 – Budget Smarter, Spend Wiser</h1>
+        <p id="midtxt">"Track, budget, and manage all your finances—smarter than ever."</p>
         <button class="btn"><a href="{{url_for('signup')}}" style="text-decoration: none;"><span>Get Started</span></a></button>
     </section>
 </div>
@@ -44,15 +44,48 @@
     </div>
 </section>
 
-<section id="work">
-    <h1 class="bigtxt">How WalletHub Helps You Manage Your Money</h1>
-    <ul class="midtxt">
-        <li><b>Step-1:</b> "Create an account and connect your accounts (wallet, bank, MFS)."</li>
-        <li><b>Step-2:</b> "Track your income, expenses, and transfers in real-time."</li>
-        <li><b>Step-3:</b> "Set budgets and receive alerts if you overspend."</li>
-        <li><b>Step-4:</b> "View financial reports and optimize your savings."</li>
-    </ul>
+<section id="work" style="padding: 40px 0; background-color: #f9f9f9;">
+    <h1 class="bigtxt" style="text-align: center; margin-bottom: 30px;">
+        How WalletHub V2.0 Empowers Your Finances
+    </h1>
+    
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 1000px; margin: auto;">
+        
+        <!-- Row 1 -->
+        <div style="flex: 1 1 calc(33.333% - 20px); min-width: 250px; background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
+            <i class="fas fa-link" style="font-size: 40px; color: #4CAF50; margin-bottom: 15px;"></i>
+            <h3>Connect All Accounts</h3>
+            <p>Link your Wallet, Bank, and MFS accounts for a complete financial overview.</p>
+        </div>
+        
+        <div style="flex: 1 1 calc(33.333% - 20px); min-width: 250px; background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
+            <i class="fas fa-chart-line" style="font-size: 40px; color: #2196F3; margin-bottom: 15px;"></i>
+            <h3>Track Transactions</h3>
+            <p>Monitor income, expenses, transfers, and receivables in real time.</p>
+        </div>
+        
+        <div style="flex: 1 1 calc(33.333% - 20px); min-width: 250px; background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
+            <i class="fas fa-bullseye" style="font-size: 40px; color: #FF9800; margin-bottom: 15px;"></i>
+            <h3>Smarter Budgeting</h3>
+            <p>Set budgets, get overspending alerts, and stay in control of your money.</p>
+        </div>
+        
+        <!-- Row 2 -->
+        <div style="flex: 1 1 calc(33.333% - 20px); min-width: 250px; background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
+            <i class="fas fa-file-pdf" style="font-size: 40px; color: #E91E63; margin-bottom: 15px;"></i>
+            <h3>Monthly PDF Reports</h3>
+            <p>Generate and download detailed monthly reports for easy review or sharing.</p>
+        </div>
+        
+        <div style="flex: 1 1 calc(33.333% - 20px); min-width: 250px; background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
+            <i class="fas fa-user-shield" style="font-size: 40px; color: #9C27B0; margin-bottom: 15px;"></i>
+            <h3>Secure Access</h3>
+            <p>Use our "Forgot Password" feature for quick and secure account recovery.</p>
+        </div>
+        
+    </div>
 </section>
+
 <section id="cta-container">
     <section id="cta">
         <h1>Start Managing Your Money Today!</h1>
