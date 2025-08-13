@@ -15,55 +15,80 @@
         </div>
     </div>
     <div class="dashboard-center">
-            
-        <div class="budget-tab">
+
+        <div class="budget-tab" id="budgetTab">
+        <div class="budget-header" onclick="toggleBudgetDetails()">
             <h2>Your Budget - {{ month_name }} {{ current_year }}</h2>
-            <div class="budget-values">
-            <span class="budget-label">Budget:</span>
-            {% if budget %}
-                <span class="budget-amount">{{ "%.2f"|format(budget) }}/=</span>
-            {% else %}
-                <span class="budget-amount no-budget">Not Set</span>
-                <button onclick="showBudgetModal()" class="set-budget-btn">Set Budget</button>
-            {% endif %}            
-        </div>
-        {%if budget %}
-            <div class="budget-values">
-                <span class="budget-label">Remaining Balance:</span>
-                
-                {% set percent = (total_monthly_expenses / budget *100) if budget else 0 %}
-                <span class="remaining-amount
-               
-                    {% if percent > 80 %}
-                        green
-                    {% elif percent > 50 %}
-                        yellow
-                    {% else %}
-                        red
-                    {% endif %}
-                ">
-                {{ "%.2f"|format(budget-total_monthly_expenses) }}/=
-                </span>
-           <div class="budget-progress">
-                <div class="progress-bar">
-                    <div class="progress-fill 
-                        {% if percent > 80 %}
-                            green
-                        {% elif percent > 50 %}
-                            yellow
-                        {% else %}
-                            red
-                        {% endif %}
-                    " style="width: {{ [percent, 100]|min }}%"></div>
-                </div>
-                <small class="progress-text">{{ "%.1f"|format(percent) }}% of budget used</small>
+            <div class="budget-toggle-icon" id="budgetToggleIcon">
+                <i class="fas fa-chevron-down"></i>
             </div>
         </div>
-        
-        <div class="budget-actions">
-            <button onclick="showBudgetModal()" class="edit-budget-btn">Edit Budget</button>
+            
+        <div class="budget-summary">
+            <div class="budget-values">
+                <span class="budget-label">Budget:</span>
+                {% if budget %}
+                    <span class="budget-amount">{{ "%.2f"|format(budget) }}/=</span>
+                {% else %}
+                    <span class="budget-amount no-budget">Not Set</span>
+                    <button onclick="showBudgetModal()" class="set-budget-btn">Set Budget</button>
+                {% endif %}            
+            </div>
         </div>
-        {% endif %}
+
+        {% if budget %}
+<div class="budget-details" id="budgetDetails">
+    <div class="budget-values">
+        <span class="budget-label">Monthly Expenses:</span>
+        {% set percent = (total_monthly_expenses / budget * 100) if budget else 0 %}
+        <span class="expense-amount
+            {% if percent < 50 %}
+                green
+            {% elif percent < 80 %}
+                yellow  
+            {% else %}
+                red
+            {% endif %}
+        ">
+            {{ "%.2f"|format(total_monthly_expenses) }}/=
+        </span>
+    </div>
+    
+    <div class="budget-values">
+        <span class="budget-label">Remaining Balance:</span>
+        <span class="remaining-amount
+            {% if percent < 50 %}
+                green
+            {% elif percent < 80 %}
+                yellow  
+            {% else %}
+                red
+            {% endif %}
+        ">
+            {{ "%.2f"|format(budget-total_monthly_expenses) }}/=
+        </span>
+    </div>
+    
+    <div class="budget-progress">
+        <div class="progress-bar">
+            <div class="progress-fill 
+                {% if percent < 50 %}
+                    green
+                {% elif percent < 80 %}
+                    yellow
+                {% else %}
+                    red
+                {% endif %}
+            " style="width: {{ [percent, 100]|min }}%"></div>
+        </div>
+        <small class="progress-text">{{ "%.1f"|format(percent) }}% of budget used</small>
+    </div>
+    
+    <div class="budget-actions">
+        <button onclick="showBudgetModal()" class="edit-budget-btn">Edit Budget</button>
+    </div>
+</div>
+{% endif %}
     </div>
 </div>
         <!-- Balance Tiles -->
@@ -836,30 +861,79 @@
     margin-bottom: 30px;
 }
 
+/* Enhanced Budget Tab Styles */
 .budget-tab {
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 4px 18px rgba(0,0,0,0.09);
-    padding: 30px 40px;
+    padding: 20px;
     text-align: center;
     min-width: 320px;
     margin: 0 auto;
+    transition: all 0.3s ease;
+    cursor: pointer;
 }
 
-.budget-tab h2 {
-    margin-bottom: 18px;
+.budget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+    cursor: pointer;
+}
+
+.budget-header:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.budget-header h2 {
+    margin: 0;
     color: #007bff;
-    font-size: 1.5em;
+    font-size: 1.3em;
+    flex-grow: 1;
+}
+
+.budget-toggle-icon {
+    color: #007bff;
+    font-size: 1.2em;
+    transition: transform 0.3s ease;
+    margin-left: 15px;
+}
+
+.budget-toggle-icon.rotated {
+    transform: rotate(180deg);
+}
+
+.budget-summary {
+    padding: 10px 20px;
+}
+
+.budget-details {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out, padding 0.4s ease-out;
+    padding: 0 20px;
+}
+
+.budget-details.expanded {
+    max-height: 400px;
+    padding: 20px;
 }
 
 .budget-values {
-    margin: 10px 0;
+    margin: 15px 0;
     font-size: 1.1em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
 }
 
 .budget-label {
     font-weight: 500;
-    margin-right: 10px;
+    color: #495057;
 }
 
 .budget-amount {
@@ -867,30 +941,32 @@
     color: #495057;
 }
 
-.remaining-amount {
+.expense-amount, .remaining-amount {
     font-weight: 700;
-    padding: 4px 16px;
-    border-radius: 8px;
-    margin-left: 10px;
-    font-size: 1.15em;
-    transition: background 0.3s, color 0.3s;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 1.05em;
+    transition: all 0.3s ease;
 }
 
-.remaining-amount.green {
+.expense-amount.green, .remaining-amount.green {
     background: #eafaf1;
     color: #28a745;
     border: 1px solid #28a745;
 }
-.remaining-amount.yellow {
+
+.expense-amount.yellow, .remaining-amount.yellow {
     background: #fffbe6;
     color: #ffc107;
     border: 1px solid #ffc107;
 }
-.remaining-amount.red {
+
+.expense-amount.red, .remaining-amount.red {
     background: #fdecea;
     color: #dc3545;
     border: 1px solid #dc3545;
 }
+
 .no-budget {
     color: #dc3545;
     font-style: italic;
@@ -915,7 +991,7 @@
 }
 
 .budget-progress {
-    margin-top: 15px;
+    margin-top: 20px;
     text-align: left;
 }
 
@@ -951,13 +1027,13 @@
     font-size: 0.85em;
     color: #6c757d;
     font-weight: 500;
-}
-
-.budget-actions {
-    margin-top: 15px;
     text-align: center;
 }
 
+.budget-actions {
+    margin-top: 20px;
+    text-align: center;
+}
 /* Budget Modal Styles */
 .budget-suggestions {
     margin: 20px 0;
@@ -1426,25 +1502,57 @@
     }
 }
 @media (max-width: 600px) {
-    .dashboard-center .budget-tab {
-        padding: 18px 8px;
-        min-width: 200px;
-    }
-    .dashboard-header .user-greeting {
-        font-size: 1em;
-        padding: 6px 10px;
-    }
-    .suggestion-buttons {
-        flex-direction: column;
+    .budget-tab {
+        min-width: 280px;
+        padding: 15px;
     }
     
-    .suggestion-buttons button {
-        width: 100%;
-        padding: 10px;
+    .budget-header {
+        padding: 8px 15px;
+    }
+    
+    .budget-header h2 {
+        font-size: 1.1em;
+    }
+    
+    .budget-values {
+        flex-direction: column;
+        text-align: center;
+        gap: 5px;
+    }
+    
+    .budget-label {
+        font-size: 0.9em;
+    }
+    
+    .expense-amount, .remaining-amount {
+        font-size: 1em;
+        padding: 6px 10px;
     }
     
     .progress-text {
         font-size: 0.8em;
+    }
+}
+@keyframes slideDown {
+    from {
+        max-height: 0;
+        opacity: 0;
+    }
+    to {
+        max-height: 400px;
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        max-height: 400px;
+        opacity: 1;
+    }
+    to {
+        max-height: 0;
+        opacity: 0;
     }
 }
 </style>
@@ -1763,11 +1871,38 @@ function closeBudgetModal() {
 function setBudgetAmount(amount) {
     document.getElementById('budget_amount').value = amount;
 }
-
+function toggleBudgetDetails() {
+    const budgetDetails = document.getElementById('budgetDetails');
+    const toggleIcon = document.getElementById('budgetToggleIcon');
+    
+    if (budgetDetails) {
+        if (budgetDetails.classList.contains('expanded')) {
+            // Collapse
+            budgetDetails.classList.remove('expanded');
+            toggleIcon.classList.remove('rotated');
+            localStorage.setItem('budgetExpanded', 'false');
+        } else {
+            // Expand
+            budgetDetails.classList.add('expanded');
+            toggleIcon.classList.add('rotated');
+            localStorage.setItem('budgetExpanded', 'true');
+        }
+    }
+}
         // Main initialization when DOM is loaded
         document.addEventListener('DOMContentLoaded', function () {
             console.log('DOM loaded, initializing app...');
-            
+                const budgetDetails = document.getElementById('budgetDetails');
+    const toggleIcon = document.getElementById('budgetToggleIcon');
+    const wasExpanded = localStorage.getItem('budgetExpanded') === 'true';
+    
+    if (budgetDetails && wasExpanded) {
+        budgetDetails.classList.add('expanded');
+        if (toggleIcon) {
+            toggleIcon.classList.add('rotated');
+        }
+    }
+    
             // Parse JSON data from hidden elements
             try {
                 const bankAccountJson = document.getElementById('bank-account-data').textContent.trim();
@@ -1817,9 +1952,9 @@ function setBudgetAmount(amount) {
             // Close modals when clicking outside
             window.addEventListener('click', function (e) {
                 const budgetModal = document.getElementById('budgetModal');
-    if (e.target === budgetModal) {
-        closeBudgetModal();
-    }
+                if (e.target === budgetModal) {
+                    closeBudgetModal();
+                }
                 if (e.target === loanModal) {
                     loanModal.style.display = 'none';
                 }
@@ -2127,17 +2262,7 @@ function setBudgetAmount(amount) {
                 });
             }
         });
-        document.addEventListener('DOMContentLoaded', function() {
-    // Check if budget is not set for current month
-    {% if not budget %}
-    // Show budget modal automatically after a short delay
-    setTimeout(() => {
-        showBudgetModal();
-    }, 1000);
-    {% endif %}
-    
-    // Existing initialization code...
-    // ... (keep your existing DOMContentLoaded code here)
-});
+        
+
     </script>
 {% endblock %}
