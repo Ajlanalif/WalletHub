@@ -3081,7 +3081,7 @@ def generate_monthly_pdf():
             total_income += transaction.amount
         
         # Create income table
-        income_table_data = [['Account', 'Date', 'Source', 'Amount (৳)']]
+        income_table_data = [['Account', 'Date', 'Source', 'Amount (BDT.)']]
         
         for account_name, transactions in income_data.items():
             for trans in transactions:
@@ -3146,7 +3146,7 @@ def generate_monthly_pdf():
             total_expense += transaction.amount
         
         # Create expense table
-        expense_table_data = [['Account', 'Date', 'Category', 'Amount (৳)']]
+        expense_table_data = [['Account', 'Date', 'Category', 'Amount (BDT.)']]
         
         for account_name, transactions in expense_data.items():
             for trans in transactions:
@@ -3187,15 +3187,13 @@ def generate_monthly_pdf():
     
     # Get receivables that were created in this month or have payments in this month
     receivables = Receivable.query.filter(
-        Receivable.user_id == current_user.id,
-        db.or_(
-            func.date(Receivable.date_lent) >= start_date,
-            func.date(Receivable.date_lent) <= end_date
-        )
+    Receivable.user_id == current_user.id,
+    func.date(Receivable.date_lent) >= start_date,
+    func.date(Receivable.date_lent) <= end_date
     ).order_by(Receivable.date_lent).all()
     
     if receivables:
-        receivable_table_data = [['Account', 'Amount (৳)', 'Debtor Name', 'Return Date', 'Status']]
+        receivable_table_data = [['Account', 'Debtor Name', 'Return Date', 'Amount (BDT.)','Status']]
         total_receivables = 0
         
         for receivable in receivables:
@@ -3211,15 +3209,15 @@ def generate_monthly_pdf():
             
             receivable_table_data.append([
                 account_name,
-                f"{receivable.amount:.2f}",
                 receivable.debtor_name,
                 return_date,
+                f"{receivable.amount:.2f}",
                 status
             ])
             total_receivables += receivable.amount
         
         # Add total row
-        receivable_table_data.append(['', f"{total_receivables:.2f}", 'TOTAL RECEIVABLES', '', ''])
+        receivable_table_data.append(['', '', 'TOTAL RECEIVABLES',  f"{total_receivables:.2f}", ''])
         
         receivable_table = Table(receivable_table_data, colWidths=[1.5*inch, 1.3*inch, 1.8*inch, 1.3*inch, 1.1*inch])
         receivable_table.setStyle(TableStyle([
@@ -3254,7 +3252,7 @@ def generate_monthly_pdf():
     ).order_by(Loan.date_taken).all()
     
     if loans:
-        loan_table_data = [['Account', 'Amount (৳)', 'Lender Name', 'Return Date', 'Status']]
+        loan_table_data = [['Account', 'Lender Name', 'Return Date','Amount (BDT.)', 'Status']]
         total_loans = 0
         
         for loan in loans:
@@ -3275,15 +3273,15 @@ def generate_monthly_pdf():
             
             loan_table_data.append([
                 account_name,
-                f"{loan.amount:.2f}",
                 loan.lender_name,
                 return_date,
+                f"{loan.amount:.2f}",
                 status
             ])
             total_loans += loan.amount
         
         # Add total row
-        loan_table_data.append(['', f"{total_loans:.2f}", 'TOTAL LOANS', '', ''])
+        loan_table_data.append(['', '', '', 'TOTAL LOANS',f"{total_loans:.2f}" ])
         
         loan_table = Table(loan_table_data, colWidths=[1.5*inch, 1.3*inch, 1.8*inch, 1.3*inch, 1.1*inch])
         loan_table.setStyle(TableStyle([

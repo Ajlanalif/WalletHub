@@ -11,9 +11,15 @@
         <h1>Monthly Financial Tracker</h1>
         
         <div class="month-navigation">
-            <a href="{{ url_for('monthly_tracker', year=prev_year, month=prev_month) }}" class="nav-button">&lt; Previous Month</a>
             
-            <form method="GET" action="{{ url_for('monthly_tracker') }}" class="month-selector">
+           
+            
+            
+    <a href="{{ url_for('monthly_tracker', year=prev_year, month=prev_month) }}" class="nav-btn">
+    <i class="fas fa-chevron-left"></i> Previous Month
+    </a>
+    
+ <form method="GET" action="{{ url_for('monthly_tracker') }}" class="month-selector">
                 <select name="month" id="month-select">
                     {% for i in range(1, 13) %}
                     <option value="{{ i }}" {% if i == month %}selected{% endif %}>{{ month_names[i-1] }}</option>
@@ -28,13 +34,6 @@
                 
                 <button type="submit" class="view-button">View</button>
             </form>
-            
-            <a href="{{ url_for('monthly_tracker', year=next_year, month=next_month) }}" class="nav-button">Next Month &gt;</a>
-             <a href="{{ url_for('monthly_tracker', year=prev_year, month=prev_month) }}" class="nav-btn">
-        <i class="fas fa-chevron-left"></i> Previous Month
-    </a>
-    
-    <h2>{{ month_name }}</h2>
     
     <a href="{{ url_for('monthly_tracker', year=next_year, month=next_month) }}" class="nav-btn">
         Next Month <i class="fas fa-chevron-right"></i>
